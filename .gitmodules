@@ -1,0 +1,6 @@
+[submodule "firmware/libs/tinyusb"]
+	path = firmware/libs/tinyusb
+	url = https://github.com/hathach/tinyusb.git
+[submodule "firmware/libs/cryptoauthlib"]
+	path = firmware/libs/cryptoauthlib
+	url = https://github.com/MicrochipTech/cryptoauthlib.git
