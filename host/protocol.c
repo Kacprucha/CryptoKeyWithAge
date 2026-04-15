@@ -40,7 +40,7 @@ bool protocol_parse_response (const uint8_t *raw, size_t raw_len, uint8_t *cmd_o
         return false;
 
     uint16_t payload_len = (uint16_t)raw[2] | ((uint16_t)raw[3] << 8);
-    if (payload_len > MAX_PAYLOAD || raw_len < FRAME_OVERHEAD + payload_len)
+    if (payload_len > MAX_PAYLOAD || (int)raw_len < FRAME_OVERHEAD + payload_len)
         return false;
 
     uint32_t received_crc;
