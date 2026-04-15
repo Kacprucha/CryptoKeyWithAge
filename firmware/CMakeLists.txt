@@ -27,13 +27,52 @@ include(pico_sdk_import.cmake)
 project(${PROJECT} C CXX ASM)
 pico_sdk_init()
 
+file(GLOB CALIB_SOURCES
+    libs/cryptoauthlib/lib/atca_basic.c
+    libs/cryptoauthlib/lib/atca_device.c
+    libs/cryptoauthlib/lib/atca_iface.c
+    libs/cryptoauthlib/lib/atca_helpers.c
+    libs/cryptoauthlib/lib/atca_cfgs.c
+    libs/cryptoauthlib/lib/atca_debug.c
+    libs/cryptoauthlib/lib/hal/atca_hal.c
+    libs/cryptoauthlib/lib/calib/calib_basic.c
+    libs/cryptoauthlib/lib/calib/calib_command.c
+    libs/cryptoauthlib/lib/calib/calib_execution.c
+    libs/cryptoauthlib/lib/calib/calib_info.c
+    libs/cryptoauthlib/lib/calib/calib_random.c
+    libs/cryptoauthlib/lib/calib/calib_genkey.c
+    libs/cryptoauthlib/lib/calib/calib_ecdh.c
+    libs/cryptoauthlib/lib/calib/calib_read.c
+    libs/cryptoauthlib/lib/calib/calib_write.c
+    libs/cryptoauthlib/lib/calib/calib_lock.c
+    libs/cryptoauthlib/lib/calib/calib_nonce.c
+    libs/cryptoauthlib/lib/calib/calib_sign.c
+    libs/cryptoauthlib/lib/calib/calib_packet.c
+    libs/cryptoauthlib/lib/calib/calib_helpers.c
+    libs/cryptoauthlib/lib/crypto/atca_crypto_sw_sha2.c
+    libs/cryptoauthlib/lib/crypto/hashes/sha2_routines.c
+)
+
+add_library(cryptoauth STATIC ${CALIB_SOURCES})
+
+target_include_directories(cryptoauth PUBLIC
+    libs/cryptoauthlib/lib
+    src/crypto   
+)
+
 add_executable(${PROJECT} 
     src/main.c 
     src/usb/usb_descriptors.c 
     src/usb/usb_handler.c 
     src/crypto/protocol.c 
+    src/crypto/hal_i2c_pico.c
 )
 
 target_include_directories(${PROJECT} PRIVATE src)
-target_link_libraries(${PROJECT} pico_stdlib hardware_i2c tinyusb_device tinyusb_board)
+target_link_libraries(${PROJECT} pico_stdlib hardware_i2c tinyusb_device tinyusb_board cryptoauth)
+
+if (PICO_CYW43_SUPPORTED)
+    target_link_libraries(${PROJECT} pico_cyw43_arch_none)
+endif()
+
 pico_add_extra_outputs(${PROJECT})
