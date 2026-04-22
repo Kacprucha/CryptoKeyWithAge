@@ -34,19 +34,28 @@ file(GLOB CALIB_SOURCES
     libs/cryptoauthlib/lib/atca_helpers.c
     libs/cryptoauthlib/lib/atca_cfgs.c
     libs/cryptoauthlib/lib/atca_debug.c
+    libs/cryptoauthlib/lib/atca_command.c
+    libs/cryptoauthlib/lib/atca_execution.c 
     libs/cryptoauthlib/lib/hal/atca_hal.c
+    libs/cryptoauthlib/lib/host/atca_host.c 
     libs/cryptoauthlib/lib/calib/calib_basic.c
     libs/cryptoauthlib/lib/calib/calib_command.c
     libs/cryptoauthlib/lib/calib/calib_execution.c
     libs/cryptoauthlib/lib/calib/calib_info.c
     libs/cryptoauthlib/lib/calib/calib_random.c
     libs/cryptoauthlib/lib/calib/calib_genkey.c
+    libs/cryptoauthlib/lib/calib/calib_gendig.c
+    libs/cryptoauthlib/lib/calib/calib_updateextra.c
     libs/cryptoauthlib/lib/calib/calib_ecdh.c
     libs/cryptoauthlib/lib/calib/calib_read.c
     libs/cryptoauthlib/lib/calib/calib_write.c
+    libs/cryptoauthlib/lib/calib/calib_execute.c
     libs/cryptoauthlib/lib/calib/calib_lock.c
     libs/cryptoauthlib/lib/calib/calib_nonce.c
     libs/cryptoauthlib/lib/calib/calib_sign.c
+    libs/cryptoauthlib/lib/calib/calib_verify.c
+    libs/cryptoauthlib/lib/calib/calib_checkmac.c
+    libs/cryptoauthlib/lib/calib/calib_derive_key.c
     libs/cryptoauthlib/lib/calib/calib_packet.c
     libs/cryptoauthlib/lib/calib/calib_helpers.c
     libs/cryptoauthlib/lib/crypto/atca_crypto_sw_sha2.c
@@ -62,8 +71,10 @@ target_include_directories(cryptoauth PUBLIC
 
 add_executable(${PROJECT} 
     src/main.c 
+    src/atecc608a_config.c
     src/usb/usb_descriptors.c 
     src/usb/usb_handler.c 
+    src/usb/config_handler.c
     src/crypto/protocol.c 
     src/crypto/hal_i2c_pico.c
 )

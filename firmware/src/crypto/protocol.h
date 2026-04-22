@@ -8,9 +8,10 @@
 #define CMD_GET_PUBLIC_KEY 0x02
 #define CMD_ECDH_REQUEST 0x03
 #define CMD_GET_RANDOM 0x04
+#define CMD_GEN_KEY 0x05
 #define CMD_ERROR 0xFF
 
-#define ERR_UKNOWN_CMD 0x01
+#define ERR_UNKNOWN_CMD 0x01
 #define ERR_BAD_CRC 0x02
 #define ERR_BAD_LENGTH 0x03
 #define ERR_CHIP_FAIL 0x04
