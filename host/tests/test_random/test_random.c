@@ -18,7 +18,7 @@ int main (int argc, char *argv[])
     uint8_t response[MAX_PAYLOAD];
     uint16_t response_len = 0;
 
-    if (device_send_cmd (fd, CMD_GET_RANDOM, request, 1, response, &response_len) != 0) 
+    if (device_send_cmd (fd, CMD_GET_RANDOM, request, 1, NULL, response, &response_len) != 0) 
     {
         fprintf(stderr, "Failed to send command or receive response\n");
         device_close (fd);

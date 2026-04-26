@@ -17,7 +17,7 @@ int main (int argc, char *argv[])
     uint8_t resp[MAX_PAYLOAD];
     uint16_t resp_len = 0;
 
-    if (device_send_cmd (fd, CMD_GET_STATUS, NULL, 0, resp, &resp_len) == 0) 
+    if (device_send_cmd (fd, CMD_GET_STATUS, NULL, 0, NULL, resp, &resp_len) == 0) 
     {
         printf("Device status: %.*s\n", resp_len, resp);
     } 

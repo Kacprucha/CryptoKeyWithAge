@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
     uint8_t  device_pub_raw[64];
     uint16_t pub_len = 0;
 
-    if (device_send_cmd(fd, CMD_GET_PUBLIC_KEY, &slot, 1, device_pub_raw, &pub_len) != 0 || pub_len != 64) 
+    if (device_send_cmd(fd, CMD_GET_PUBLIC_KEY, &slot, 1, NULL, device_pub_raw, &pub_len) != 0 || pub_len != 64) 
     {
         fprintf(stderr, "GET_PUBLIC_KEY FAIL (slot %d) – does the slot have a generated key?\n", slot);
         goto cleanup;
@@ -195,7 +195,9 @@ int main(int argc, char *argv[])
     uint8_t  hw_shared[32];
     uint16_t hw_len = 0;
 
-    if (device_send_cmd(fd, CMD_ECDH_REQUEST, ecdh_payload, 65, hw_shared, &hw_len) != 0 || hw_len != 32) 
+    printf("[!] TUP: Please press button to confirm the ECDH operation...\n");
+
+    if (device_send_cmd(fd, CMD_ECDH_REQUEST, ecdh_payload, 65, NULL, hw_shared, &hw_len) != 0 || hw_len != 32) 
     {
         fprintf(stderr, "ECDH_REQUEST FAIL (slot %d)\n", slot);
         secure_zero(soft_shared, sizeof(soft_shared));

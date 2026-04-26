@@ -267,7 +267,7 @@ int main(int argc, char *argv[])
     {
         printf("[*] Reading config zone...\n");
         uint8_t req = OP_READ_CONFIG;
-        if (device_send_cmd(fd, CMD_CONFIG_OP, &req, 1, resp, &resp_len) != 0) {
+        if (device_send_cmd(fd, CMD_CONFIG_OP, &req, 1, NULL, resp, &resp_len) != 0) {
             fprintf(stderr, "Error: communication error\n");
             ret = 1;
         } 
@@ -292,7 +292,7 @@ int main(int argc, char *argv[])
 
         /* Najpierw odczytaj i sprawdź czy config jest odblokowana */
         uint8_t req_r = OP_READ_CONFIG;
-        if (device_send_cmd(fd, CMD_CONFIG_OP, &req_r, 1, resp, &resp_len) == 0
+        if (device_send_cmd(fd, CMD_CONFIG_OP, &req_r, 1, NULL, resp, &resp_len) == 0
             && resp_len == CONFIG_ZONE_SIZE) 
         {
             if (resp[CONFIG_OFFSET_LOCK_CFG] != ZONE_UNLOCKED) 
@@ -306,7 +306,7 @@ int main(int argc, char *argv[])
         uint8_t req_w = OP_WRITE_CONFIG;
         uint8_t result[4];
         uint16_t result_len = 0;
-        if (device_send_cmd(fd, CMD_CONFIG_OP, &req_w, 1, result, &result_len) != 0) 
+        if (device_send_cmd(fd, CMD_CONFIG_OP, &req_w, 1, NULL, result, &result_len) != 0) 
         {
             fprintf(stderr, "Error: failed to write configuration\n");
             ret = 1;
@@ -322,7 +322,7 @@ int main(int argc, char *argv[])
     {
         printf("[*] Verifying configuration...\n");
         uint8_t req = OP_READ_CONFIG;
-        if (device_send_cmd(fd, CMD_CONFIG_OP, &req, 1, resp, &resp_len) != 0
+        if (device_send_cmd(fd, CMD_CONFIG_OP, &req, 1, NULL, resp, &resp_len) != 0
             || resp_len != CONFIG_ZONE_SIZE) 
         {
             fprintf(stderr, "Error: failed to read configuration\n");
@@ -353,7 +353,7 @@ int main(int argc, char *argv[])
         }
 
         uint8_t req_r = OP_READ_CONFIG;
-        if (device_send_cmd(fd, CMD_CONFIG_OP, &req_r, 1, resp, &resp_len) == 0
+        if (device_send_cmd(fd, CMD_CONFIG_OP, &req_r, 1, NULL, resp, &resp_len) == 0
             && resp_len == CONFIG_ZONE_SIZE) 
         {
             int errors = verify_config_matches(resp);
@@ -368,7 +368,7 @@ int main(int argc, char *argv[])
         uint8_t req_l = OP_LOCK_CONFIG;
         uint8_t result[4];
         uint16_t result_len = 0;
-        if (device_send_cmd(fd, CMD_CONFIG_OP, &req_l, 1, result, &result_len) != 0) 
+        if (device_send_cmd(fd, CMD_CONFIG_OP, &req_l, 1, NULL, result, &result_len) != 0) 
         {
             fprintf(stderr, "Error: failed to lock config zone\n");
             ret = 1;
@@ -400,7 +400,7 @@ int main(int argc, char *argv[])
         uint8_t req_l = OP_LOCK_DATA;
         uint8_t result[4];
         uint16_t result_len = 0;
-        if (device_send_cmd(fd, CMD_CONFIG_OP, &req_l, 1, result, &result_len) != 0) 
+        if (device_send_cmd(fd, CMD_CONFIG_OP, &req_l, 1, NULL, result, &result_len) != 0) 
         {
             fprintf(stderr, "Error: failed to lock data zone\n");
             ret = 1;
@@ -448,7 +448,7 @@ int main(int argc, char *argv[])
         uint16_t pk_len = 0;
         uint8_t gen_resp[64];
         uint16_t gen_len = 0;
-        int gen_ret = device_send_cmd(fd, CMD_GEN_KEY, req, 1, gen_resp, &gen_len);
+        int gen_ret = device_send_cmd(fd, CMD_GEN_KEY, req, 1, NULL, gen_resp, &gen_len);
 
         if (gen_ret != 0 || gen_len != 64) 
         {
@@ -495,7 +495,7 @@ int main(int argc, char *argv[])
             uint8_t req[1] = { (uint8_t)s };
             uint8_t pubkey[64];
             uint16_t pk_len = 0;
-            if (device_send_cmd(fd, CMD_GET_PUBLIC_KEY, req, 1, pubkey, &pk_len) == 0
+            if (device_send_cmd(fd, CMD_GET_PUBLIC_KEY, req, 1, NULL, pubkey, &pk_len) == 0
                 && pk_len == 64) 
             {
                 printf("  %2d    %-12s ", s, "EXISTS");
