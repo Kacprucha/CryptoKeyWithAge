@@ -20,11 +20,13 @@ static void handle_get_status (void)
     tud_cdc_write_flush();
 }
 
-static void handle_get_public_key(const uint8_t *request_data, uint16_t request_len) { 
+static void handle_get_public_key(const uint8_t *request_data, uint16_t request_len) 
+{ 
     static uint8_t tx_buf[128];
     size_t out_len = 0;
     
-    if (request_len < 1) {
+    if (request_len < 1) 
+    {
         protocol_build_error(ERR_BAD_LENGTH, tx_buf, &out_len);
         tud_cdc_write(tx_buf, out_len);
         tud_cdc_write_flush();
@@ -32,7 +34,8 @@ static void handle_get_public_key(const uint8_t *request_data, uint16_t request_
     }
 
     uint8_t slot = request_data[0];
-    if (slot > 7) {
+    if (slot > 7) 
+    {
         protocol_build_error(ERR_BAD_LENGTH, tx_buf, &out_len);
         tud_cdc_write(tx_buf, out_len);
         tud_cdc_write_flush();
@@ -43,13 +46,15 @@ static void handle_get_public_key(const uint8_t *request_data, uint16_t request_
 	/* P-256: X(32B) || Y(32B) */ 
 	uint8_t resp[FRAME_OVERHEAD + 64]; 
 	ATCA_STATUS status = atcab_get_pubkey(slot, pubkey); 
-	if (status != ATCA_SUCCESS) { 
-		/* Częsty powód błędu: slot nie ma jeszcze wygenerowanego klucza.
-		 * Uruchom host/tool_genkey aby wygenerować klucz raz. */
+	if (status != ATCA_SUCCESS) 
+    { 
 		protocol_build_error(ERR_CHIP_FAIL, resp, &out_len); 
-	} else { 
+	} 
+    else 
+    { 
 		protocol_build_response(CMD_GET_PUBLIC_KEY, pubkey, 64, resp, &out_len);
 	} 
+    
 	tud_cdc_write(resp, out_len); 
 	tud_cdc_write_flush(); 
 } 
