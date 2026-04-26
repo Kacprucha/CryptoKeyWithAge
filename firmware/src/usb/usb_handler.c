@@ -1,6 +1,7 @@
 #include "tusb.h"
 #include "atca_basic.h"
 #include "config_handler.h"
+#include "crypto_handler.h"
 #include "protocol.h"
 #include <string.h>
 
@@ -18,72 +19,6 @@ static void handle_get_status (void)
     
     tud_cdc_write(tx_buf, out_len);
     tud_cdc_write_flush();
-}
-
-static void handle_get_public_key(const uint8_t *request_data, uint16_t request_len) 
-{ 
-    static uint8_t tx_buf[128];
-    size_t out_len = 0;
-    
-    if (request_len < 1) 
-    {
-        protocol_build_error(ERR_BAD_LENGTH, tx_buf, &out_len);
-        tud_cdc_write(tx_buf, out_len);
-        tud_cdc_write_flush();
-        return;
-    }
-
-    uint8_t slot = request_data[0];
-    if (slot > 7) 
-    {
-        protocol_build_error(ERR_BAD_LENGTH, tx_buf, &out_len);
-        tud_cdc_write(tx_buf, out_len);
-        tud_cdc_write_flush();
-        return;
-    }
-
-	uint8_t pubkey[64]; 
-	/* P-256: X(32B) || Y(32B) */ 
-	uint8_t resp[FRAME_OVERHEAD + 64]; 
-	ATCA_STATUS status = atcab_get_pubkey(slot, pubkey); 
-	if (status != ATCA_SUCCESS) 
-    { 
-		protocol_build_error(ERR_CHIP_FAIL, resp, &out_len); 
-	} 
-    else 
-    { 
-		protocol_build_response(CMD_GET_PUBLIC_KEY, pubkey, 64, resp, &out_len);
-	} 
-    
-	tud_cdc_write(resp, out_len); 
-	tud_cdc_write_flush(); 
-} 
-
-
-static void handle_get_random (const uint8_t *request_data, uint16_t request_len) 
-{
-    uint8_t random_bytes[32];
-    uint8_t response[FRAME_OVERHEAD + 32];
-    size_t out_len;
-    uint8_t size = (request_len > 0) ? request_data[0] : 32;
-    
-    if (size > 32) 
-    {
-        size = 32;
-    }
-    
-    ATCA_STATUS status = atcab_random(random_bytes);
-    if (status != ATCA_SUCCESS) 
-    {
-        protocol_build_error (ERR_CHIP_FAIL, response, &out_len);
-    }
-    else 
-    {
-        protocol_build_response(CMD_GET_RANDOM, random_bytes, size, response, &out_len);
-    }
-
-    tud_cdc_write(response, out_len);
-    tud_cdc_write_flush();\
 }
 
 void tud_cdc_rx_cb(uint8_t itf) 
@@ -145,6 +80,9 @@ void tud_cdc_rx_cb(uint8_t itf)
             break;
         case CMD_GEN_KEY:
             handle_gen_key(frame.data, frame.len);
+            break;
+        case CMD_ECDH_REQUEST:
+            handle_ecdh_request(frame.data, frame.len);
             break;
         default:
             size_t out_len;
