@@ -72,6 +72,7 @@ target_include_directories(cryptoauth PUBLIC
 add_executable(${PROJECT} 
     src/main.c 
     src/atecc608a_config.c
+    src/led_config.c
     src/usb/usb_descriptors.c 
     src/usb/usb_handler.c 
     src/usb/config_handler.c

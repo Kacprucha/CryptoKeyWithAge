@@ -1,6 +1,7 @@
 #include "user_presence.h"
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
+#include "led_config.h"
 #include <string.h>
 #include <stdint.h>
 
@@ -45,10 +46,9 @@ void tup_init(void)
     gpio_set_dir(BUTTON_PIN, GPIO_IN);
     gpio_pull_up(BUTTON_PIN);
 
-    gpio_init(LED_PIN);
-    gpio_set_dir(LED_PIN, GPIO_OUT);
-    gpio_put(LED_PIN, 0);
-
+    //gpio_init(LED_PIN);
+    //gpio_set_dir(LED_PIN, GPIO_OUT);
+    pico_set_led(false);
 
     gpio_set_irq_enabled_with_callback(BUTTON_PIN, GPIO_IRQ_EDGE_FALL, true, gpio_button_callback);
 }
@@ -59,7 +59,7 @@ void tup_request(void)
     s_tup_pending = true;
     s_request_ms = to_ms_since_boot(get_absolute_time());
 
-    gpio_put(LED_PIN, 1);
+    pico_set_led(true);
 }
 
 bool tup_check(void) 
@@ -79,7 +79,7 @@ bool tup_check(void)
     {
         s_button_pressed = false;
         s_tup_pending = false;
-        gpio_put(LED_PIN, 0);
+        pico_set_led(false);
         return true;
     }
 
@@ -90,7 +90,7 @@ void tup_cancel(void)
 {
     s_tup_pending    = false;
     s_button_pressed = false;
-    gpio_put(LED_PIN, 0);
+    pico_set_led(false);
 }
 
 bool tup_timed_out(void) 
