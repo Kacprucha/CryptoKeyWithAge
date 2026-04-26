@@ -3,6 +3,7 @@
 #include "atca_basic.h"
 #include "config_handler.h"
 #include "protocol.h"
+#include "user_presence.h"
 #include <string.h>
 
 
@@ -96,6 +97,29 @@ void handle_ecdh_request(const uint8_t *payload, uint16_t len)
         return;
     }
 
+    /* TUP: check if user has pressed the button */
+    if (!tup_check()) 
+    {
+        if (!s_tup_pending_for_ecdh) 
+        {
+            tup_request();
+            s_tup_pending_for_ecdh = true;
+        }
+
+        uint8_t pending_info[2] = {
+            (uint8_t)(TUP_WINDOW_MS / 1000),
+            0x01 
+        };
+
+        protocol_build_response(CMD_USER_PRESENCE_PENDING, pending_info, sizeof(pending_info), resp, &out_len);
+        tud_cdc_write(resp, out_len);
+        tud_cdc_write_flush();
+        return;
+    }
+
+    /* User has pressed the button - proceed with the cryptographic operation */
+    s_tup_pending_for_ecdh = false;
+
     bool x_zero = true, y_zero = true;
     for (int i = 0; i < 32; i++) 
     {
@@ -122,7 +146,7 @@ void handle_ecdh_request(const uint8_t *payload, uint16_t len)
         volatile uint8_t *p = shared_secret;
         for (int i = 0; i < 32; i++) p[i] = 0;
     }
-    
+
     tud_cdc_write(resp, out_len);
     tud_cdc_write_flush();
 }

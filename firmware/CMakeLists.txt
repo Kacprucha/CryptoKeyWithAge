@@ -78,6 +78,7 @@ add_executable(${PROJECT}
     src/usb/crypto_handler.c
     src/crypto/protocol.c 
     src/crypto/hal_i2c_pico.c
+    src/crypto/user_presence.c
 )
 
 target_include_directories(${PROJECT} PRIVATE src)

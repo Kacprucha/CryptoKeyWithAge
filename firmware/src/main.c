@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
+#include "hardware/watchdog.h"
 #include "tusb.h"
 #include "cryptoauthlib.h"
+#include "user_presence.h"
 
 // Pico W devices use a GPIO on the WIFI chip for the LED,
 // so when building for Pico W, CYW43_WL_GPIO_LED_PIN will be defined
@@ -63,9 +65,19 @@ int main()
         pico_set_led(true); // Turn on LED to indicate error
     }
 
+    tup_init();
+
     while (true) 
     {
         tud_task(); // tinyusb device task
+        watchdog_update();
+
+        if (tup_timed_out()) 
+        {
+            tup_cancel();
+            s_tup_pending_for_ecdh   = false;
+            s_tup_pending_for_pubkey = false;
+        }
     }
 
     return 0;
