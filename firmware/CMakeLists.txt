@@ -75,6 +75,7 @@ add_executable(${PROJECT}
     src/usb/usb_descriptors.c 
     src/usb/usb_handler.c 
     src/usb/config_handler.c
+    src/usb/crypto_handler.c
     src/crypto/protocol.c 
     src/crypto/hal_i2c_pico.c
 )

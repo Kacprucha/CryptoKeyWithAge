@@ -15,6 +15,7 @@
 #define ERR_BAD_CRC 0x02
 #define ERR_BAD_LENGTH 0x03
 #define ERR_CHIP_FAIL 0x04
+#define ERR_BAD_SLOT 0x05
 
 #define FRAME_HEADR_SIZE 4
 #define FRAME_CRC_SIZE 4
