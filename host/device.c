@@ -67,7 +67,7 @@ static ssize_t read_exact(int fd, uint8_t *buf, size_t want, int timeout_ms)
     return (ssize_t)got;
 }
 
-int device_send_cmd(int fd, uint8_t cmd, const uint8_t *data, uint16_t data_len, uint8_t *resp_data, uint16_t *resp_len)
+int device_send_cmd(int fd, uint8_t cmd, const uint8_t *data, uint16_t data_len, uint8_t *cmd_out, uint8_t *resp_data, uint16_t *resp_len)
 {
     // printf("[DEBUG] sending cmd=%02x, len=%u\n", cmd, data_len);
     // for (int i = 0; i < data_len; i++) printf("%02x ", data[i]);
@@ -138,8 +138,40 @@ int device_send_cmd(int fd, uint8_t cmd, const uint8_t *data, uint16_t data_len,
         fprintf(stderr, "[device] protocol_parse_response failed\n");
         return -1;
     }
+
+    if (cmd_out) *cmd_out = resp_cmd;
  
     return 0;
+}
+
+#define TUP_POLL_INTERVAL_MS  500
+#define TUP_MAX_POLLS          25   /* 25 × 500ms = ~12.5s */
+
+int device_send_cmd_tup(int fd, uint8_t cmd,
+                        const uint8_t *data, uint16_t data_len,
+                        uint8_t *resp_data, uint16_t *resp_len)
+{
+    for (int poll = 0; poll < TUP_MAX_POLLS; poll++) {
+        uint8_t resp_cmd = 0;
+        int r = device_send_cmd(fd, cmd, data, data_len,
+                                &resp_cmd, resp_data, resp_len);
+        if (r != 0) return -1;
+
+        if (resp_cmd == CMD_USER_PRESENCE_PENDING) {
+            if (poll == 0) {
+                fprintf(stderr,
+                    "\n[!] Dotknij przycisku na urządzeniu aby autoryzować operację"
+                    " (masz %d sekund)...\n", TUP_WINDOW_MS / 1000);
+            }
+            usleep(TUP_POLL_INTERVAL_MS * 1000);
+            continue;
+        }
+
+        return 0;  /* sukces – dostaliśmy normalną odpowiedź */
+    }
+
+    fprintf(stderr, "[device] Timeout – przycisk nie został naciśnięty.\n");
+    return -2;
 }
 
 void device_close (int fd) 
