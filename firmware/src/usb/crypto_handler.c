@@ -33,6 +33,75 @@ void handle_get_random (const uint8_t *request_data, uint16_t request_len)
     tud_cdc_write_flush();
 }
 
+void handle_gen_key(const uint8_t *req_data, uint16_t req_len) 
+{
+    static uint8_t tx_buf[128];
+    size_t out_len = 0;
+
+    if (req_len < 1) 
+    {
+        protocol_build_error(ERR_BAD_LENGTH, tx_buf, &out_len);
+        tud_cdc_write(tx_buf, out_len);
+        tud_cdc_write_flush();
+        return;
+    }
+
+    uint8_t slot = req_data[0];
+    if (slot > 7) 
+    {
+        protocol_build_error(ERR_BAD_LENGTH, tx_buf, &out_len);
+        tud_cdc_write(tx_buf, out_len);
+        tud_cdc_write_flush();
+        return;
+    }
+
+    /* TUP: check if user has pressed the button */
+    if (!tup_check()) 
+    {
+        if (!s_tup_pending_for_ecdh) 
+        {
+            tup_request();
+            s_tup_pending_for_ecdh = true;
+        }
+
+        uint8_t pending_info[2] = {
+            (uint8_t)(TUP_WINDOW_MS / 1000),
+            0x01 
+        };
+
+        protocol_build_response(CMD_USER_PRESENCE_PENDING, pending_info, sizeof(pending_info), tx_buf, &out_len);
+        tud_cdc_write(tx_buf, out_len);
+        tud_cdc_write_flush();
+        return;
+    }
+
+    /* User has pressed the button - proceed with the cryptographic operation */
+    s_tup_pending_for_ecdh = false;
+
+    uint8_t pubkey[64];
+    /* atcab_genkey(slot, pubkey) – GenKey Mode 0x04:
+     * Generating NEW random private key in the specified slot.
+     * DESTROYS the previous key (irreversible).
+     * Returns the corresponding public key (64B: X||Y without prefix). */
+    ATCA_STATUS status = atcab_genkey(slot, pubkey);
+
+    if (status != ATCA_SUCCESS) 
+    {
+        /* Frequent reasons for error:
+         * - ATCA_EXECUTION_ERROR: data zone not locked
+         * - ATCA_BAD_PARAM: invalid slot
+         * - ECC fault: random ECC error (retry works) */
+        protocol_build_error(ERR_CHIP_FAIL, tx_buf, &out_len);
+    } 
+    else 
+    {
+        protocol_build_response(CMD_GEN_KEY, pubkey, 64, tx_buf, &out_len);
+    }
+
+    tud_cdc_write(tx_buf, out_len);
+    tud_cdc_write_flush();
+}
+
 void handle_get_public_key(const uint8_t *request_data, uint16_t request_len) 
 { 
     static uint8_t tx_buf[128];

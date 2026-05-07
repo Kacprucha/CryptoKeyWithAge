@@ -3,24 +3,24 @@
 *
 * SLOT LAYOUT (slots 0–7 are user-defined ECC keys):
 *
-* Slot Size Purpose ECDH GenKey Sign.
+* Slot Size    Purpose                        ECDH GenKey Sign.
 * ---- ------- ------------------------------ ---- ------ -----
-* 0 36B ECC P-256 Key #0 (default) YES YES YES
-* 1 36B ECC P-256 Key #1 YES YES YES
-* 2 36B ECC P-256 Key #2 YES YES YES
-* 3 36B ECC P-256 Key #3 YES YES YES
-* 4 36B ECC P-256 Key #4 YES YES YES
-* 5 36B ECC P-256 Key #5 YES YES YES
-* 6 36B ECC P-256 Key #6 YES YES YES
-* 7 36B ECC P-256 Key #7 YES YES YES
-* 8 416B General Data (public certificates / pub keys)
-* 9 72B General Data (reserve)
-* 10 72B General Data (reserve)
-* 11 72B General Data (reserve)
-* 12 72B General Data (reserve)
-* 13 72B General Data (reserve)
-* 14 72B General Data (reserve)
-* 15 72B General Data (reserve)
+* 0    36B     ECC P-256 Key #0 (default)     YES  YES    YES
+* 1    36B     ECC P-256 Key #1               YES  YES    YES
+* 2    36B     ECC P-256 Key #2               YES  YES    YES
+* 3    36B     ECC P-256 Key #3               YES  YES    YES
+* 4    36B     ECC P-256 Key #4               YES  YES    YES
+* 5    36B     ECC P-256 Key #5               YES  YES    YES
+* 6    36B     ECC P-256 Key #6               YES  YES    YES
+* 7    36B     ECC P-256 Key #7               YES  YES    YES
+* 8    416B    General Data (public certificates / pub keys)
+* 9    72B     General Data (reserve)
+* 10   72B     General Data (reserve)
+* 11   72B     General Data (reserve)
+* 12   72B     General Data (reserve)
+* 13   72B     General Data (reserve)
+* 14   72B     General Data (reserve)
+* 15   72B     General Data (reserve)
 *
 * SLOT CONFIGURATION 0–7 (ECC private key, ECDH output in clear):
 *

@@ -111,7 +111,7 @@ void handle_config_op(const uint8_t *req_data, uint16_t req_len)
     tud_cdc_write_flush();
 }
 
-void handle_gen_key(const uint8_t *req_data, uint16_t req_len) 
+void config_handle_gen_key(const uint8_t *req_data, uint16_t req_len) 
 {
     static uint8_t tx_buf[128];
     size_t out_len = 0;
