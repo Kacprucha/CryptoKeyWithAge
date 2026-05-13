@@ -1,0 +1,1 @@
+/home/karas/Magisterka/CryptoKey/host/device.h
