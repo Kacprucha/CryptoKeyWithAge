@@ -1,0 +1,13 @@
+format,variant,size_name,plaintext_bytes,encrypted_bytes,overhead_bytes,header_bytes,payload_bytes
+age,Software,100B,100,300,200,168,132
+age,Software,1KB,1024,1224,200,168,1056
+age,Software,64KB,65536,65736,200,168,65568
+age,Software,1MB,1048576,1049016,440,168,1048848
+age,Software,10MB,10485760,10488504,2744,168,10488336
+age,Software,100MB,104857600,104883384,25784,168,104883216
+age,Hardware[soft-ECDH],100B,100,365,265,233,132
+age,Hardware[soft-ECDH],1KB,1024,1289,265,233,1056
+age,Hardware[soft-ECDH],64KB,65536,65801,265,233,65568
+age,Hardware[soft-ECDH],1MB,1048576,1049081,505,233,1048848
+age,Hardware[soft-ECDH],10MB,10485760,10488569,2809,233,10488336
+age,Hardware[soft-ECDH],100MB,104857600,104883449,25849,233,104883216

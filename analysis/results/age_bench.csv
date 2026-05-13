@@ -1,0 +1,27 @@
+source,benchmark,median_ms,min_ms,max_ms,n_runs,bytes,encrypted_bytes,overhead_bytes,header_bytes,payload_bytes,category,variant,size_label,color_key
+age,BenchmarkECDH_Software,0.03385,0.03385,0.03385,354678,0,0,0,0,0,ECDH,Software,–,age_soft
+age,BenchmarkECDH_Hardware,0.006889,0.006889,0.006889,1740864,0,0,0,0,0,ECDH,Hardware,–,age_hw
+age,BenchmarkEncrypt_Soft/100B,0.09909,0.09909,0.09909,121370,100,0,0,0,0,Encrypt,Software,100B,age_soft
+age,BenchmarkEncrypt_Soft/1KB,0.099788,0.099788,0.099788,119850,1024,0,0,0,0,Encrypt,Software,1 KB,age_soft
+age,BenchmarkEncrypt_Soft/64KB,0.137152,0.137152,0.137152,88965,65536,0,0,0,0,Encrypt,Software,64 KB,age_soft
+age,BenchmarkEncrypt_Soft/1MB,0.536301,0.536301,0.536301,22468,1048576,0,0,0,0,Encrypt,Software,1 MB,age_soft
+age,BenchmarkEncrypt_Soft/10MB,6.542565,6.542565,6.542565,1810,10485760,0,0,0,0,Encrypt,Software,10 MB,age_soft
+age,BenchmarkEncrypt_Soft/100MB,64.913256,64.913256,64.913256,183,104857600,0,0,0,0,Encrypt,Software,100 MB,age_soft
+age,BenchmarkEncrypt_Hardware/100B,0.039209,0.039209,0.039209,305293,100,0,0,0,0,Encrypt,Hardware,100B,age_hw
+age,BenchmarkEncrypt_Hardware/1KB,0.03993,0.03993,0.03993,300080,1024,0,0,0,0,Encrypt,Hardware,1 KB,age_hw
+age,BenchmarkEncrypt_Hardware/64KB,0.07331,0.07331,0.07331,167727,65536,0,0,0,0,Encrypt,Hardware,64 KB,age_hw
+age,BenchmarkEncrypt_Hardware/1MB,0.534346,0.534346,0.534346,22660,1048576,0,0,0,0,Encrypt,Hardware,1 MB,age_hw
+age,BenchmarkEncrypt_Hardware/10MB,6.515202,6.515202,6.515202,1826,10485760,0,0,0,0,Encrypt,Hardware,10 MB,age_hw
+age,BenchmarkEncrypt_Hardware/100MB,64.78449,64.78449,64.78449,183,104857600,0,0,0,0,Encrypt,Hardware,100 MB,age_hw
+age,BenchmarkDecrypt_Soft/100B,0.058753,0.058753,0.058753,206181,100,0,0,0,0,Decrypt,Software,100B,age_soft
+age,BenchmarkDecrypt_Soft/1KB,0.059784,0.059784,0.059784,200216,1024,0,0,0,0,Decrypt,Software,1 KB,age_soft
+age,BenchmarkDecrypt_Soft/64KB,0.100344,0.100344,0.100344,120262,65536,0,0,0,0,Decrypt,Software,64 KB,age_soft
+age,BenchmarkDecrypt_Soft/1MB,0.455666,0.455666,0.455666,26347,1048576,0,0,0,0,Decrypt,Software,1 MB,age_soft
+age,BenchmarkDecrypt_Soft/10MB,3.915293,3.915293,3.915293,3034,10485760,0,0,0,0,Decrypt,Software,10 MB,age_soft
+age,BenchmarkDecrypt_Soft/100MB,44.072408,44.072408,44.072408,271,104857600,0,0,0,0,Decrypt,Software,100 MB,age_soft
+age,BenchmarkDecrypt_Hardware/100B,244.159864,244.159864,244.159864,52,100,0,0,0,0,Decrypt,Hardware,100B,age_hw
+age,BenchmarkDecrypt_Hardware/1KB,267.900934,267.900934,267.900934,46,1024,0,0,0,0,Decrypt,Hardware,1 KB,age_hw
+age,BenchmarkDecrypt_Hardware/64KB,261.472758,261.472758,261.472758,51,65536,0,0,0,0,Decrypt,Hardware,64 KB,age_hw
+age,BenchmarkDecrypt_Hardware/1MB,315.576169,315.576169,315.576169,43,1048576,0,0,0,0,Decrypt,Hardware,1 MB,age_hw
+age,BenchmarkDecrypt_Hardware/10MB,282.705066,282.705066,282.705066,43,10485760,0,0,0,0,Decrypt,Hardware,10 MB,age_hw
+age,BenchmarkDecrypt_Hardware/100MB,285.70601,285.70601,285.70601,56,104857600,0,0,0,0,Decrypt,Hardware,100 MB,age_hw
