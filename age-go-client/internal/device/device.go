@@ -146,9 +146,12 @@ func (d *Device) GenerateKey(slot uint8) ([]byte, error) {
 	}
 }
 
-func (d *Device) ECDH(slot uint8, theirPub []byte) ([]byte, error) {
+// ECDHFast is a variant of ECDH with a shorter polling interval.
+// // Use ONLY in benchmarks - in your application, use ECDH() with the default of 500ms.
+func (d *Device) ECDHFast(slot uint8, theirPub []byte) ([]byte, error) {
 	if len(theirPub) != 64 {
-		return nil, fmt.Errorf("ECDH: invalid public key length: expected 64 bytes, got %d bytes", len(theirPub))
+		return nil, fmt.Errorf("ECDH: invalid public key length: "+
+			"expected 64 bytes, got %d bytes", len(theirPub))
 	}
 
 	payload := make([]byte, protocol.PayloadECDHReq)
@@ -169,20 +172,16 @@ func (d *Device) ECDH(slot uint8, theirPub []byte) ([]byte, error) {
 	}
 
 	timeout := time.After(time.Duration(protocol.TUPWindowMS) * time.Millisecond)
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
 
 	for {
 		select {
 		case <-timeout:
 			return nil, ErrTUPTimeout
-
-		case <-ticker.C:
-			_ = d.flush()
-
+		default:
 			resp, err := d.SendCmd(protocol.CmdECDHRequest, payload)
+
 			if err != nil {
-				return nil, fmt.Errorf("ECDH init (slot %d): %w", slot, err)
+				return nil, fmt.Errorf("ECDH poll (slot %d): %w", slot, err)
 			}
 
 			if len(resp) == protocol.PayloadECDHResp {
@@ -190,6 +189,84 @@ func (d *Device) ECDH(slot uint8, theirPub []byte) ([]byte, error) {
 			}
 		}
 	}
+}
+
+func (d *Device) ECDH(slot uint8, theirPub []byte, pollInterval time.Duration) ([]byte, error) {
+
+	if len(theirPub) != 64 {
+		return nil, fmt.Errorf("ECDH: invalid public key length: "+
+			"expected 64 bytes, got %d bytes", len(theirPub))
+	}
+
+	payload := make([]byte, protocol.PayloadECDHReq)
+	payload[0] = slot
+	copy(payload[1:], theirPub)
+
+	if err := d.flush(); err != nil {
+		return nil, fmt.Errorf("flush przed ECDH: %w", err)
+	}
+
+	resp, err := d.SendCmd(protocol.CmdECDHRequest, payload)
+	if err != nil {
+		return nil, fmt.Errorf("ECDH init (slot %d): %w", slot, err)
+	}
+
+	if len(resp) == protocol.PayloadECDHResp {
+		return resp, nil
+	}
+
+	timeout := time.After(time.Duration(protocol.TUPWindowMS) * time.Millisecond)
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	var lastRespLen int = len(resp)
+
+	for {
+		select {
+		case <-timeout:
+			return nil, ErrTUPTimeout
+		case <-ticker.C:
+			_ = d.flush()
+			resp, err := d.SendCmd(protocol.CmdECDHRequest, payload)
+
+			if err != nil {
+				return nil, fmt.Errorf("ECDH poll (slot %d): %w", slot, err)
+			}
+
+			if len(resp) == protocol.PayloadECDHResp {
+				return resp, nil
+			}
+
+			if len(resp) != lastRespLen {
+				resp2, err := d.SendCmd(protocol.CmdECDHRequest, payload)
+
+				if err != nil {
+					return nil, fmt.Errorf("ECDH fast-retry (slot %d): %w", slot, err)
+				}
+
+				if len(resp2) == protocol.PayloadECDHResp {
+					return resp2, nil
+				}
+			}
+			lastRespLen = len(resp)
+		}
+	}
+}
+
+func (d *Device) SendTUPRequest(slot uint8, theirPub []byte) error {
+	payload := make([]byte, protocol.PayloadECDHReq)
+	payload[0] = slot
+
+	if len(theirPub) >= 64 {
+		copy(payload[1:], theirPub[:64])
+	}
+
+	if err := d.flush(); err != nil {
+		return err
+	}
+
+	d.SendCmd(protocol.CmdECDHRequest, payload)
+	return nil
 }
 
 func (d *Device) flush() error {
