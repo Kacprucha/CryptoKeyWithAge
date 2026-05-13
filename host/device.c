@@ -144,33 +144,36 @@ int device_send_cmd(int fd, uint8_t cmd, const uint8_t *data, uint16_t data_len,
     return 0;
 }
 
-#define TUP_POLL_INTERVAL_MS  500
-#define TUP_MAX_POLLS          25   /* 25 × 500ms = ~12.5s */
-
-int device_send_cmd_tup(int fd, uint8_t cmd,
-                        const uint8_t *data, uint16_t data_len,
-                        uint8_t *resp_data, uint16_t *resp_len)
+int device_send_cmd_tup(int fd, uint8_t cmd, const uint8_t *data, uint16_t data_len, uint8_t *resp_data, uint16_t *resp_len)
 {
-    for (int poll = 0; poll < TUP_MAX_POLLS; poll++) {
+    for (int poll = 0; poll < TUP_MAX_POLLS; poll++) 
+    {
         uint8_t resp_cmd = 0;
-        int r = device_send_cmd(fd, cmd, data, data_len,
-                                &resp_cmd, resp_data, resp_len);
-        if (r != 0) return -1;
+        int r = device_send_cmd(fd, cmd, data, data_len, &resp_cmd, resp_data, resp_len);
+        
+        if (r != 0)
+        { 
+            return -1;
+        }
 
-        if (resp_cmd == CMD_USER_PRESENCE_PENDING) {
-            if (poll == 0) {
+        if (resp_cmd == CMD_USER_PRESENCE_PENDING) 
+        {
+            if (poll == 0) 
+            {
                 fprintf(stderr,
-                    "\n[!] Dotknij przycisku na urządzeniu aby autoryzować operację"
-                    " (masz %d sekund)...\n", TUP_WINDOW_MS / 1000);
+                    "\n[!] Touch the button on the device to authorize the operation"
+                    " (you have %d seconds)...\n", TUP_WINDOW_MS / 1000);
             }
+
             usleep(TUP_POLL_INTERVAL_MS * 1000);
             continue;
         }
 
-        return 0;  /* sukces – dostaliśmy normalną odpowiedź */
+        return 0;
     }
 
-    fprintf(stderr, "[device] Timeout – przycisk nie został naciśnięty.\n");
+    fprintf(stderr, "[device] Timeout – button not pressed.\n");
+
     return -2;
 }
 

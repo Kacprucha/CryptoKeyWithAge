@@ -52,9 +52,9 @@ int main(int argc, char *argv[])
 
     printf("Step 1: Sending ECDH_REQUEST – expecting PENDING...\n");
     
-    uint8_t  resp[128] = {0};
+    uint8_t resp[128] = {0};
     uint16_t resp_len = 0;
-    uint8_t  resp_cmd = 0;
+    uint8_t resp_cmd = 0;
     
     device_send_cmd(fd, CMD_ECDH_REQUEST, ecdh_payload, 65, &resp_cmd, resp, &resp_len);
 
