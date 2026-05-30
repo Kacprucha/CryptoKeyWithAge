@@ -82,8 +82,11 @@ void tud_cdc_rx_cb(uint8_t itf)
             handle_gen_key(frame.data, frame.len);
             break;
         case CMD_ECDH_REQUEST:
-            handle_ecdh_request(frame.data, frame.len);
+            handle_ecdh_request(frame.data, frame.len, false);
             break;
+        case CMD_ECDH_REQUEST_BYPASS_TUP:
+            handle_ecdh_request(frame.data, frame.len, true);
+            break;        
         default:
             size_t out_len;
             protocol_build_error (ERR_UNKNOWN_CMD, tx_buf, &out_len);

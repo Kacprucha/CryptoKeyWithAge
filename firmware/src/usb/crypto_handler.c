@@ -141,7 +141,7 @@ void handle_get_public_key(const uint8_t *request_data, uint16_t request_len)
 	tud_cdc_write_flush(); 
 }
 
-void handle_ecdh_request(const uint8_t *payload, uint16_t len) 
+void handle_ecdh_request(const uint8_t *payload, uint16_t len, bool skip_tup_check)
 {
     uint8_t shared_secret[32];
     uint8_t resp[FRAME_OVERHEAD + 32];
@@ -167,7 +167,7 @@ void handle_ecdh_request(const uint8_t *payload, uint16_t len)
     }
 
     /* TUP: check if user has pressed the button */
-    if (!tup_check()) 
+    if (!skip_tup_check && !tup_check()) 
     {
         if (!s_tup_pending_for_ecdh) 
         {
