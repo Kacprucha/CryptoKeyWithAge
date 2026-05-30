@@ -253,7 +253,7 @@ func (d *Device) ECDH(slot uint8, theirPub []byte, pollInterval time.Duration) (
 	}
 }
 
-func (d *Device) SendTUPRequest(slot uint8, theirPub []byte) error {
+func (d *Device) SendTUPRequest(slot uint8, theirPub []byte) error {	
 	payload := make([]byte, protocol.PayloadECDHReq)
 	payload[0] = slot
 
@@ -267,6 +267,29 @@ func (d *Device) SendTUPRequest(slot uint8, theirPub []byte) error {
 
 	d.SendCmd(protocol.CmdECDHRequest, payload)
 	return nil
+}
+
+func (d *Device) ECDHBypassTUP(slot uint8, theirPub []byte) ([]byte, error) {
+	if len(theirPub) != 64 {
+		return nil, fmt.Errorf("ECDH: invalid public key length: "+
+			"expected 64 bytes, got %d bytes", len(theirPub))
+	}
+	
+	payload := make([]byte, protocol.PayloadECDHReq)
+	payload[0] = slot
+	copy(payload[1:], theirPub)
+
+	resp, err := d.SendCmd(protocol.CmdECDHRequestBypassTUP, payload)
+	if err != nil {
+		return nil, fmt.Errorf("ECDHBypassTUP (slot %d): %w", slot, err)
+	}
+
+	if len(resp) == protocol.PayloadECDHResp {
+		return resp, nil
+	}
+
+	return nil, fmt.Errorf("unexpected response length for ECDHBypassTUP: expected %d bytes, got %d bytes",
+		protocol.PayloadECDHResp, len(resp))
 }
 
 func (d *Device) flush() error {

@@ -11,11 +11,13 @@ import (
 )
 
 type PicoIdentity struct {
-	Dev *device.Device
+	Dev       *device.Device
+	BypassTUP bool
 }
 
 type PicoIdentityFast struct {
-    Dev *device.Device
+	Dev       *device.Device
+	BypassTUP bool
 }
 
 func (id *PicoIdentity) Unwrap(stanza []*age.Stanza) ([]byte, error) {
@@ -37,9 +39,16 @@ func (id *PicoIdentity) Unwrap(stanza []*age.Stanza) ([]byte, error) {
 		if err != nil {
 			continue
 		}
-		slot := uint8(slotInt)
 
-		shared, err := id.Dev.ECDH(slot, ephPub[1:], 500*time.Millisecond)
+		slot := uint8(slotInt)
+		var shared []byte
+
+		if id.BypassTUP {
+			shared, err = id.Dev.ECDHBypassTUP(slot, ephPub[1:])
+		} else {
+			shared, err = id.Dev.ECDH(slot, ephPub[1:], 500*time.Millisecond)
+		}
+
 		if err != nil {
 			return nil, fmt.Errorf("failed to perform ECDH: %w", err)
 		}

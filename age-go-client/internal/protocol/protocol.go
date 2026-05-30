@@ -1,13 +1,14 @@
 package protocol
 
 const (
-	Stx                    = 0x02
-	CmdGetStatus           = 0x01
-	CmdGetPublicKey        = 0x02
-	CmdECDHRequest         = 0x03
-	CmdGetRandom           = 0x04
-	CmdGenKey              = 0x05
-	CmdUserPresencePending = 0x06
+	Stx                     = 0x02
+	CmdGetStatus            = 0x01
+	CmdGetPublicKey         = 0x02
+	CmdECDHRequest          = 0x03
+	CmdGetRandom            = 0x04
+	CmdGenKey               = 0x05
+	CmdUserPresencePending  = 0x06
+	CmdECDHRequestBypassTUP = 0x07
 )
 
 const (

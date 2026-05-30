@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"testing"
-	"time"
 
 	"filippo.io/age"
 	"github.com/Kacprucha/age-go-client/internal/device"
@@ -129,30 +128,12 @@ func BenchmarkECDH_Hardware(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		eph, _ := curve.GenerateKey(rand.Reader)
-		dev.ECDH(0, eph.PublicKey().Bytes(), 500*time.Millisecond)
+		pub := eph.PublicKey().Bytes()
+		dev.ECDHBypassTUP(0, pub[1:])
 	}
 }
 
 // Encrypt Benchmarki
-
-func BenchmarkEncrypt_Soft(b *testing.B) {
-	for _, sz := range fileSizes {
-		b.Run(sz.name, func(b *testing.B) {
-			data := make([]byte, sz.size)
-			rand.Read(data)
-			key, _ := age.GenerateX25519Identity()
-			b.SetBytes(int64(sz.size))
-			b.ResetTimer()
-
-			for i := 0; i < b.N; i++ {
-				var buf bytes.Buffer
-				enc, _ := age.Encrypt(&buf, key.Recipient())
-				enc.Write(data)
-				enc.Close()
-			}
-		})
-	}
-}
 
 // BenchmarkEncrypt_Hardware
 func BenchmarkEncrypt_Hardware(b *testing.B) {
@@ -187,31 +168,6 @@ func BenchmarkEncrypt_Hardware(b *testing.B) {
 }
 
 // Decrypt Benchmarki
-func BenchmarkDecrypt_Soft(b *testing.B) {
-	for _, sz := range fileSizes {
-		b.Run(sz.name, func(b *testing.B) {
-			data := make([]byte, sz.size)
-			rand.Read(data)
-
-			encData, key := encryptSoft(data)
-
-			b.SetBytes(int64(sz.size))
-			b.ResetTimer()
-
-			for i := 0; i < b.N; i++ {
-				r, err := age.Decrypt(bytes.NewReader(encData), key)
-
-				if err != nil {
-					b.Fatal("decrypt error:", err)
-				}
-
-				io.Copy(io.Discard, r)
-			}
-		})
-	}
-}
-
-// BenchmarkDecrypt_Hardware
 func BenchmarkDecrypt_Hardware(b *testing.B) {
 	dev, err := device.Open(device.Autodetect())
 
@@ -226,7 +182,7 @@ func BenchmarkDecrypt_Hardware(b *testing.B) {
 	}
 
 	r := &picoage.PicoRecipient{DevicePub: pub, Slot: 0}
-	identity := &picoage.PicoIdentityFast{Dev: dev}
+	identity := &picoage.PicoIdentity{Dev: dev, BypassTUP: true}
 
 	for _, sz := range fileSizes {
 		b.Run(sz.name, func(b *testing.B) {
@@ -249,7 +205,6 @@ func BenchmarkDecrypt_Hardware(b *testing.B) {
 }
 
 // File size measurements
-
 func TestFileSizes(t *testing.T) {
 	fmt.Println("format,variant,size_name,plaintext_bytes," +
 		"encrypted_bytes,overhead_bytes,header_bytes,payload_bytes")
