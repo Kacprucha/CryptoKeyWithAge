@@ -1,21 +1,19 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -O2 -g \
-           -I. -I./pgp -I./device \
-           $(shell pkg-config --cflags mbedtls)
-LDFLAGS = $(shell pkg-config --libs mbedtls) \
-           -lmbedcrypto -lmbedtls -lmbedx509
+           -I. \
+           -I/usr/include/mbedtls
+LDFLAGS = -lmbedcrypto -lmbedtls -lmbedx509
 
 SRCS = main.c \
        cmd/encrypt.c \
        cmd/decrypt.c \
-       pgp/packet.c \
+       cmd/get_pub_key.c \
+       pgp/pkesk.c \
        pgp/kdf.c \
-       pgp/keywrap.c \
-       pgp/seipd.c \
-       pgp/mpi.c \
        device/device.c \
 	   device/protocol.c \
-	   device/device_tup.c
+	   device/device_tup.c \
+       benchmarks/timing.h
 
 pico-pgp: $(SRCS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
@@ -29,13 +27,14 @@ test: $(TEST_SRCS)
 	./test_crypto
 
 BENCH_SRCS = benchmarks/bench_pgp.c \
+            cmd/encrypt.c \
+            cmd/decrypt.c \
+            pgp/pkesk.c \
             pgp/kdf.c \
-			pgp/keywrap.c \
-			pgp/seipd.c \
-            pgp/packet.c \
-			pgp/mpi.c \
             device/device.c \
-			device/protocol.c
+	        device/protocol.c \
+	        device/device_tup.c \
+            benchmarks/timing.h
 
 bench: $(BENCH_SRCS)
 	$(CC) $(CFLAGS) -o benchmarks/bench_pgp $^ $(LDFLAGS)
