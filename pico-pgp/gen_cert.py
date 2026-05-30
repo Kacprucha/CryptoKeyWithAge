@@ -38,6 +38,12 @@ def build_cert(xy_hex: str) -> bytes:
 
 
 def import_to_gpg(cert_path: str) -> None:
+    r_del = subprocess.run(
+        ['gpg', '--batch', '--yes', '--delete-keys', 'pico@device'],
+        capture_output=True, text=True)
+    if r_del.returncode == 0:
+        print("\t[*] Deleted old pico@device certificates from keyring")
+
     r = subprocess.run(
         ['gpg', '--import', cert_path],
         capture_output=True, text=True)
@@ -45,7 +51,7 @@ def import_to_gpg(cert_path: str) -> None:
     for line in r.stderr.split('\n'):
         if line.strip():
             print(f"\t{line}")
-    
+
     if r.returncode != 0:
         raise RuntimeError(f"gpg --import failed:\n{r.stderr}")
 
