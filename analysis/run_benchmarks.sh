@@ -85,6 +85,8 @@ log_info "Slot:      $SLOT"
 log_info "Runs PGP:  $RUNS"
 log_info "Benchtime: $BENCHTIME (age)"
 log_info "Hardware:  $([ $DO_HW -eq 1 ] && echo 'YES' || echo 'NO')"
+log_info "PGP (C):   $([ $DO_PGP -eq 1 ] && echo 'YES' || echo 'NO (--no-pgp)')"
+log_info "age (Go):  $([ $DO_AGE -eq 1 ] && echo 'YES' || echo 'NO (--no-age)')"
 echo ""
  
 mkdir -p "$RESULTS_DIR" "$CHARTS_DIR"
@@ -117,15 +119,19 @@ if [[ $DO_PGP -eq 1 ]]; then
     PGP_CSV="$RESULTS_DIR/pgp_bench.csv"
  
     HW_FLAG=""
-    [[ $DO_HW -eq 0 ]] && HW_FLAG="--no-hw"
- 
-    log_info "Running bench_pgp (runs=$RUNS)..."
-    if [[ $DO_HW -eq 1 ]]; then
-        log_warn "ECDH Hardware benchmark requires manual pressing of TUP!"
-        log_warn "Follow the instructions on the screen."
+    if [[ $DO_HW -eq 0 ]]; then
+        HW_FLAG="--no-hw"
+        log_warn "Hardware benchmarks skipped (--no-hw):"
+        log_warn "  BenchmarkECDH_Hardware, BenchmarkEncrypt_Hardware/*, BenchmarkDecrypt_HW/*"
+    else
+        log_warn "Hardware benchmarks require:"
+        log_warn "  1. Pico connected on $PORT"
+        log_warn "  2. gpg key pico@device imported (python3 gen_cert.py && gpg --import pico_cert.pgp)"
+        log_warn "  3. BenchmarkDecrypt_HW uses bypass TUP — no button press needed"
         echo ""
     fi
- 
+    
+    log_info "Running bench_pgp (runs=$RUNS)..."
     "$PGP_BENCH" \
         --runs  "$RUNS"  \
         --port  "$PORT"  \
@@ -160,19 +166,18 @@ if [[ $DO_AGE -eq 1 ]]; then
  
     if [[ $DO_HW -eq 1 ]]; then
         BENCH_FILTER="."
+        log_info "Running all benchmarks (Software + Hardware)."
+        log_warn "BenchmarkECDH_Hardware and BenchmarkEncrypt_Hardware"
+        log_warn "  require Pico on $PORT with key in slot $SLOT."
+        log_warn "BenchmarkDecrypt_Hardware uses BypassTUP=true — no button press needed."
+        echo ""
     else
-        BENCH_FILTER="BenchmarkECDH_Software|BenchmarkEncrypt_Soft|BenchmarkDecrypt_Soft"
-        log_warn "Skipping Hardware benchmarks in age (--no-hw)."
+        BENCH_FILTER="BenchmarkECDH_Software"
+        log_warn "Hardware benchmarks skipped (--no-hw):"
+        log_warn "  BenchmarkECDH_Hardware, BenchmarkEncrypt_Hardware/*, BenchmarkDecrypt_Hardware/*"
     fi
-
-    BENCHTIME_AGE="$RUNS"x
  
     log_info "Running go test -bench (benchtime=$BENCHTIME)..."
-    if [[ $DO_HW -eq 1 ]]; then
-        log_warn "ECDH_Hardware and Encrypt_Hardware benchmarks require TUP at each iteration."
-        log_warn "go test handles TUP automatically via dev.ECDH()."
-        echo ""
-    fi
  
     go test ./benchmarks/... \
         -bench       "$BENCH_FILTER" \

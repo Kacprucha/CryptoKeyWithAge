@@ -3,25 +3,24 @@
 analysis/generate_charts.py
 
 Input data:
-  --pgp        results/pgp_bench.csv      ← bench_pgp.c (10 columns)
+  --pgp        results/pgp_bench.csv      ← bench_pgp.c
   --age        results/age_raw.txt        ← go test -bench (ns/op)
-  --age-sizes  results/age_sizes.csv      ← go test -run TestFileSizes (opctional)
+  --age-sizes  results/age_sizes.csv      ← go test -run TestFileSizes (optional)
   --out        results/
 """
 
 import argparse
 import csv
-import os
 import re
 import sys
 from pathlib import Path
 
 MISSING = []
-for pkg in ("pandas", "matplotlib", "openpyxl", "numpy"):
+for _pkg in ("pandas", "matplotlib", "openpyxl", "numpy"):
     try:
-        __import__(pkg)
+        __import__(_pkg)
     except ImportError:
-        MISSING.append(pkg)
+        MISSING.append(_pkg)
 
 if MISSING:
     print(f"[ERR] Missing packages: {', '.join(MISSING)}")
@@ -35,696 +34,650 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
 
-# Styl
+# Style
+
 COLORS = {
-    "pgp_soft": "#1565C0",
-    "pgp_hw":   "#B71C1C",
-    "age_soft": "#2E7D32",
-    "age_hw":   "#E65100",
+    "pgp_soft": "#1565C0",   # ciemny niebieski
+    "pgp_hw":   "#B71C1C",   # ciemny czerwony
+    "age_soft": "#2E7D32",   # ciemny zielony
+    "age_hw":   "#E65100",   # pomarańczowy
 }
 HATCH = {"pgp_soft": "", "pgp_hw": "///", "age_soft": "", "age_hw": "///"}
 
-SIZE_ORDER_ALL = ["100B", "1 KB", "64 KB", "1 MB", "10 MB", "100 MB"]
+SIZE_ORDER = ["100B", "1KB", "64KB", "1MB", "10MB", "100MB"]
+
 SIZE_BYTES_MAP = {
-    100: "100B", 1024: "1 KB", 65536: "64 KB",
-    1048576: "1 MB", 10485760: "10 MB", 104857600: "100 MB",
+    100: "100B",
+    1024: "1KB",
+    65536: "64KB",
+    1048576: "1MB",
+    10485760: "10MB",
+    104857600: "100MB",
 }
 
 plt.rcParams.update({
-    "font.family": "DejaVu Sans", "font.size": 11,
-    "axes.titlesize": 13, "axes.labelsize": 11,
-    "axes.grid": True, "grid.alpha": 0.35, "grid.linestyle": "--",
-    "figure.dpi": 150, "savefig.dpi": 150, "savefig.bbox": "tight",
-    "legend.framealpha": 0.9,
+    "font.family": "DejaVu Sans",
+    "font.size": 11,
+    "axes.titlesize": 13,
+    "axes.labelsize": 11,
+    "axes.grid": True,
+    "grid.alpha": 0.3,
+    "grid.linestyle": "--",
+    "figure.dpi": 150,
+    "savefig.dpi": 150,
+    "savefig.bbox": "tight",
+    "legend.framealpha": 0.92,
 })
 
-#  Helpers
+# Helpers 
 
-def _bytes_fmt(x, _):
+def _bytes_label(x, _=None):
     if x >= 1024**3: return f"{x/1024**3:.1f} GB"
-    if x >= 1024**2: return f"{x/1024**2:.1f} MB"
-    if x >= 1024:    return f"{x/1024:.0f} KB"
+    if x >= 1024**2: return f"{x/1024**2:.0f} MB"
+    if x >= 1024: return f"{x/1024:.0f} KB"
     return f"{int(x)} B"
 
-def _bytes_fmt_short(x):
+def _bytes_short(x):
     if x >= 1024**2: return f"{x/1024**2:.1f}M"
-    if x >= 1024:    return f"{x/1024:.1f}K"
+    if x >= 1024: return f"{x/1024:.0f}K"
     return f"{int(x)}B"
 
-def _save(fig, path):
+def _ms_label(y, _=None):
+    if y >= 1e6: return f"{y/1e6:.1f} ks"
+    if y >= 1000: return f"{y/1000:.1f} s"
+    if y >= 1: return f"{y:.0f} ms"
+    if y >= 0.01: return f"{y:.2f} ms"
+    return f"{y:.3f} ms"
+
+def _save(fig, path, label=""):
     fig.savefig(path)
     plt.close(fig)
-    print(f"  Saved: {Path(path).name}")
+    tag = f" ({label})" if label else ""
+    print(f"\tSaved: {Path(path).name}{tag}")
 
-def _label_bar(ax, bar, value, fmt="{:.2f} ms"):
-    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height()*1.04,
-            fmt.format(value), ha="center", va="bottom",
-            fontsize=8.5, fontweight="bold")
+def _bar_annotate(ax, x, y, fmt="{:.1f}"):
+    for xi, yi in zip(x, y):
+        if yi <= 0:
+            continue
+        ax.text(xi, yi * 1.06, fmt.format(yi),
+                ha="center", va="bottom", fontsize=8.5, fontweight="bold")
 
-#  Parsers
+# Parsers
 
-def parse_pgp_csv(path):
+def parse_pgp_csv(path: Path) -> pd.DataFrame:
     rows = []
+
+    def _f(v, default=0.0): return float(v) if v not in (None, "", "0") else default
+    def _fi(v, default=0.0): return float(v) if v not in (None, "") else default
+    def _i(v, default=0):   return int(float(v)) if v not in (None, "") else default
+
     with open(path, newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            name = row.get("benchmark", "").strip()
-            if not name or name.startswith("#"):
-                continue
-            try:
+        raw = f.read()
+
+    lines = [l.strip() for l in raw.splitlines() if l.strip()]
+
+    for line in lines:
+        if line.startswith("#") or line.lower().startswith("benchmark,"):
+            continue
+
+        parts = line.split(",")
+        if len(parts) < 2:
+            continue
+
+        name = parts[0].strip()
+        if not name:
+            continue
+
+        is_filesize = "FileSize" in name
+
+        try:
+            if is_filesize and len(parts) == 4:
+                plaintext = _i(parts[1])
+                pgp_size = _i(parts[2])
+                overhead = _i(parts[3])
                 rows.append({
-                    "source": "pgp", "benchmark": name,
-                    "median_ms": float(row["median_ms"]),
-                    "min_ms":    float(row["min_ms"]),
-                    "max_ms":    float(row["max_ms"]),
-                    "n_runs":    int(row["n_runs"]),
-                    "bytes":     int(row.get("bytes") or 0),
-                    "encrypted_bytes": int(row.get("encrypted_bytes") or 0),
-                    "overhead_bytes":  int(row.get("overhead_bytes") or 0),
-                    "header_bytes":    int(row.get("header_bytes") or 0),
-                    "payload_bytes":   int(row.get("payload_bytes") or 0),
+                    "source": "pgp",
+                    "benchmark": name,
+                    "median_ms": 0.0,
+                    "min_ms": 0.0,
+                    "max_ms": 0.0,
+                    "n_runs": 0,
+                    "bytes": plaintext,
+                    "encrypted_bytes": pgp_size,
+                    "overhead_bytes": overhead,
+                    "header_bytes": 0,
+                    "payload_bytes": 0,
                 })
-            except (ValueError, KeyError) as e:
-                print(f"  [warn] PGP row skip ({e}): {name}")
+            else:
+                rows.append({
+                    "source": "pgp",
+                    "benchmark": name,
+                    "median_ms": _fi(parts[1] if len(parts) > 1 else None),
+                    "min_ms": _fi(parts[2] if len(parts) > 2 else None),
+                    "max_ms": _fi(parts[3] if len(parts) > 3 else None),
+                    "n_runs": _i(parts[4]  if len(parts) > 4 else None),
+                    "bytes":  _i(parts[5]  if len(parts) > 5 else None),
+                    "encrypted_bytes": _i(parts[6]  if len(parts) > 6 else None),
+                    "overhead_bytes": _i(parts[7]  if len(parts) > 7 else None),
+                    "header_bytes": _i(parts[8]  if len(parts) > 8 else None),
+                    "payload_bytes": _i(parts[9]  if len(parts) > 9 else None),
+                })
+        except (ValueError, IndexError) as e:
+            print(f"\t[warn] pgp row skip ({e}): {line[:80]}")
+
     df = pd.DataFrame(rows)
-    print(f"  PGP: {len(df)} rows")
+    print(f"\tPGP: {len(df)} rows parsed"
+          f"\t({len(df[df['benchmark'].str.contains('FileSize')])} FileSize,"
+          f"\t{len(df[~df['benchmark'].str.contains('FileSize')])} timing)")
+    
     return df
 
 
-def parse_age_raw(path):
+def parse_age_raw(path: Path) -> pd.DataFrame:
     rows = []
+
     pat = re.compile(
         r'^(Benchmark[A-Za-z0-9_/]+)-\d+\s+(\d+)\s+([\d.]+)\s+ns/op')
+    
     with open(path) as f:
         for line in f:
             m = pat.match(line.strip())
             if not m:
                 continue
+            
             name = m.group(1)
-            ms   = float(m.group(3)) / 1e6
-            size = 0
+            ms = float(m.group(3)) / 1_000_000.0
+            size_bytes = 0
+            
             for b, lbl in SIZE_BYTES_MAP.items():
-                if lbl.replace(" ", "") in name:
-                    size = b; break
+                if lbl in name:
+                    size_bytes = b
+                    break
+            
             rows.append({
-                "source": "age", "benchmark": name,
-                "median_ms": ms, "min_ms": ms, "max_ms": ms,
-                "n_runs": int(m.group(2)), "bytes": size,
-                "encrypted_bytes": 0, "overhead_bytes": 0,
-                "header_bytes": 0, "payload_bytes": 0,
+                "source": "age",
+                "benchmark": name,
+                "median_ms": ms,
+                "min_ms": ms,
+                "max_ms": ms,
+                "n_runs": int(m.group(2)),
+                "bytes": size_bytes,
             })
+    
     df = pd.DataFrame(rows)
-    print(f"  age timing: {len(df)} rows")
+    print(f"  age timing: {len(df)} rows parsed")
+    
     return df
 
 
-def parse_age_sizes(path):
+def parse_age_sizes(path: Path) -> pd.DataFrame:
     rows = []
     with open(path, newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
             try:
                 rows.append({
-                    "source":          "age",
-                    "size_name":       row["size_name"].strip(),
-                    "variant":         row["variant"].strip(),
-                    "bytes":           int(row["plaintext_bytes"]),
+                    "source": "age",
+                    "variant": row["variant"].strip(),
+                    "size_name": row["size_name"].strip(),
+                    "bytes": int(row["plaintext_bytes"]),
                     "encrypted_bytes": int(row["encrypted_bytes"]),
-                    "overhead_bytes":  int(row["overhead_bytes"]),
-                    "header_bytes":    int(row["header_bytes"]),
-                    "payload_bytes":   int(row["payload_bytes"]),
+                    "overhead_bytes": int(row["overhead_bytes"]),
+                    "header_bytes": int(row["header_bytes"]),
+                    "payload_bytes": int(row["payload_bytes"]),
                 })
             except (ValueError, KeyError) as e:
                 print(f"  [warn] age sizes skip ({e})")
+    
     df = pd.DataFrame(rows)
-    reverse = {v.replace(" ", ""): v for v in SIZE_ORDER_ALL}
-    df["size_label"] = df["size_name"].map(reverse).fillna("–")
-    print(f"  age sizes: {len(df)} rows")
+    print(f"  age sizes: {len(df)} rows parsed")
+    
     return df
 
 
-def categorize(df):
+def categorize(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return df
+
     cats = []
     for _, row in df.iterrows():
         name = row["benchmark"]
-        if   "ECDH_Software" in name: cat, var = "ECDH",     "Software"
-        elif "ECDH_Hardware"  in name: cat, var = "ECDH",     "Hardware"
-        elif "Encrypt_Soft"   in name: cat, var = "Encrypt",  "Software"
-        elif "Encrypt_Hard"   in name: cat, var = "Encrypt",  "Hardware"
-        elif "Decrypt_Soft"   in name: cat, var = "Decrypt",  "Software"
-        elif "Decrypt_Hard"   in name: cat, var = "Decrypt",  "Hardware"
-        elif "FileSize"        in name: cat, var = "FileSize", "Software"
-        else:                          cat, var = "Other",    "Unknown"
+
+        if   "ECDH_Software" in name: cat, var = "ECDH", "Software"
+        elif "ECDH_Hardware" in name: cat, var = "ECDH", "Hardware"
+        elif "Encrypt_Hard" in name: cat, var = "Encrypt", "Hardware"
+        elif "Encrypt_Hard" in name: cat, var = "Encrypt", "Hardware" 
+        elif "Decrypt_HW" in name: cat, var = "Decrypt", "Hardware"
+        elif "Decrypt_Hard" in name: cat, var = "Decrypt", "Hardware"
+        elif "FileSize" in name:  cat, var = "FileSize", "Hardware"
+        else: cat, var = "Other", "Unknown"
+
         sz = int(row.get("bytes", 0))
-        sl = SIZE_BYTES_MAP.get(sz, "–")
-        if sl == "–":
+        sl = SIZE_BYTES_MAP.get(sz, "")
+        
+        if not sl:
             for b, lbl in SIZE_BYTES_MAP.items():
-                if lbl.replace(" ", "") in name:
-                    sl = lbl; break
+                if lbl in name:
+                    sl = lbl
+                    sz = b
+                    break
+        if not sl:
+            sl = "–"
+
         ckey = f"{row['source']}_{'soft' if var == 'Software' else 'hw'}"
-        cats.append({"category": cat, "variant": var,
-                     "size_label": sl, "color_key": ckey})
-    return pd.concat([df.reset_index(drop=True), pd.DataFrame(cats)], axis=1)
+        cats.append({
+            "category": cat,
+            "variant": var,
+            "size_label": sl,
+            "size_bytes": sz,
+            "color_key": ckey,
+        })
 
-#  Charts
+    return pd.concat([df.reset_index(drop=True),
+                      pd.DataFrame(cats)], axis=1)
 
-def chart_ecdh(df, out_dir):
+# Chart 01: ECDH
+
+def chart_ecdh(df: pd.DataFrame, out_dir: Path):
     sub = df[df["category"] == "ECDH"].copy()
     if sub.empty:
-        print("  [warn] No ECDH"); return
+        print("\t[warn] No ECDH data"); return
+ 
 
+    COLORS_ECDH = {
+        "pgp_soft": "#1565C0",  
+        "pgp_hw": "#90CAF9",  
+        "age_soft": "#2E7D32",  
+        "age_hw": "#81C784",   
+    }
     entries = [
-        ("pgp", "Software", "pico-pgp\nSoftware"),
-        ("pgp", "Hardware", "pico-pgp\nHardware"),
-        ("age", "Software", "age\nSoftware"),
-        ("age", "Hardware", "age\nHardware"),
+        ("pgp", "Software", "pico-pgp\nSoftware", "pgp_soft"),
+        ("pgp", "Hardware", "pico-pgp\nHardware", "pgp_hw"),
+        ("age", "Software", "age\nSoftware", "age_soft"),
+        ("age", "Hardware", "age\nHardware", "age_hw"),
     ]
-    x_pos, heights, colors, hatches, xlabels, errors = [], [], [], [], [], []
-    for i, (src, var, lbl) in enumerate(entries):
+ 
+    x_pos, heights, err_lo, err_hi, colors, hatches, xlabels = \
+        [], [], [], [], [], [], []
+ 
+    for i, (src, var, lbl, ckey) in enumerate(entries):
         row = sub[(sub["source"] == src) & (sub["variant"] == var)]
-        if row.empty: continue
+        
+        if row.empty:
+            continue
+        
         med = row["median_ms"].values[0]
-        err = abs(row["max_ms"].values[0] - row["min_ms"].values[0]) / 2
-        ckey = f"{src}_{'soft' if var == 'Software' else 'hw'}"
-        x_pos.append(i); heights.append(med); errors.append(err)
-        colors.append(COLORS.get(ckey, "#888"))
+        lo = med - row["min_ms"].values[0]
+        hi = row["max_ms"].values[0] - med
+        x_pos.append(i)
+        heights.append(med)
+        err_lo.append(max(lo, 0))
+        err_hi.append(max(hi, 0))
+        colors.append(COLORS_ECDH.get(ckey, "#888"))
         hatches.append(HATCH.get(ckey, ""))
         xlabels.append(lbl)
-
-    fig, ax = plt.subplots(figsize=(9, 5))
-    bars = ax.bar(x_pos, heights, color=colors, width=0.55,
-                  yerr=errors, capsize=6,
-                  error_kw={"linewidth": 1.5, "ecolor": "black"},
-                  edgecolor="black", linewidth=0.7)
-    for bar, h, hatch in zip(bars, heights, hatches):
-        bar.set_hatch(hatch)
-        _label_bar(ax, bar, h)
-    ax.set_xticks(x_pos); ax.set_xticklabels(xlabels)
-    ax.set_ylabel("Mediana time [ms]")
+ 
+    if not heights:
+        print("\t[warn] ECDH — empty after filtering"); return
+ 
+    fig, ax = plt.subplots(figsize=(9, 5.5))
+    bars = ax.bar( x_pos, heights, color=colors, width=0.55, yerr=[err_lo, err_hi], capsize=6, error_kw={"linewidth": 1.5, "ecolor": "black"}, edgecolor="black", linewidth=0.8)
+    for bar, hatch in zip(bars, hatches):
+        if hatch:
+            bar.set_hatch(hatch)
+            bar.set_edgecolor("black")
+ 
+    y_max = max(heights)
+    y_min = min(heights)
+    for xi, yi in zip(x_pos, heights):
+        label_y = yi * (y_max / y_min) ** 0.06
+        ax.text(xi, label_y, f"{yi:.2f} ms" if yi < 10 else f"{yi:.1f} ms", ha="center", va="bottom", fontsize=9, fontweight="bold")
+ 
+    ax.set_yscale("log")
+    ax.set_ylim(y_min * 0.15, y_max * 8)
+    ax.yaxis.set_major_formatter(ticker.FuncFormatter(_ms_label))
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(xlabels, fontsize=10)
+    ax.set_ylabel("Median time [ms] (log scale)")
     ax.set_title("ECDH P-256: Software vs Hardware — pico-pgp vs age")
-    ax.set_ylim(0, max(heights) * 1.45 if heights else 1)
+ 
     from matplotlib.patches import Patch
     ax.legend(handles=[
-        Patch(facecolor="#aaa", edgecolor="black", label="Software"),
-        Patch(facecolor="#aaa", edgecolor="black", hatch="///", label="Hardware"),
-    ], loc="upper right")
-    _save(fig, out_dir / "ecdh_comparison.png")
+        Patch(facecolor=COLORS["pgp_soft"], edgecolor="black", label="pico-pgp"),
+        Patch(facecolor=COLORS["age_soft"], edgecolor="black", label="age"),
+        Patch(facecolor="#ccc", edgecolor="black", label="Software"),
+        Patch(facecolor="#ccc", edgecolor="black", hatch="///", label="Hardware"),
+    ], loc="upper left", fontsize=9)
+ 
+    _save(fig, out_dir / "01_ecdh_comparison.png", "ECDH log-bar")
 
 
-def chart_time_by_size(df, category, out_dir, filename, title,
-                        age_hw_note=False):
+# Chart 02 and 03: Encrypt / Decrypt time vs size 
+
+def _time_vs_size(df: pd.DataFrame, category: str, ax: plt.Axes, show_legend: bool = True):
     sub = df[(df["category"] == category) &
-             (df["size_label"].isin(SIZE_ORDER_ALL))].copy()
-    if sub.empty:
-        print(f"  [warn] No {category}"); return
-    sub["_o"] = sub["size_label"].map({k: i for i, k in enumerate(SIZE_ORDER_ALL)})
-    sub = sub.sort_values("_o")
-
-    fig, ax = plt.subplots(figsize=(10, 5.5))
-    for src in ["pgp", "age"]:
-        for var in ["Software", "Hardware"]:
-            grp = sub[(sub["source"] == src) & (sub["variant"] == var)]
-            if grp.empty: continue
-            ckey  = f"{src}_{'soft' if var == 'Software' else 'hw'}"
-            label = f"{'pico-pgp' if src == 'pgp' else 'age'} {var}"
-            if age_hw_note and src == "age" and var == "Hardware" \
-                    and category == "Encrypt":
-                label += "\nECDH soft"
-            style = "-o" if var == "Software" else "--s"
-            ax.plot(grp["size_label"].values, grp["median_ms"].values,
-                    style, label=label, color=COLORS.get(ckey, "#888"),
-                    linewidth=2.2, markersize=8)
-            if src == "pgp" and not all(
-                    grp["min_ms"].values == grp["max_ms"].values):
-                ax.fill_between(grp["size_label"].values,
-                                grp["min_ms"].values, grp["max_ms"].values,
-                                alpha=0.15, color=COLORS.get(ckey, "#888"))
-    ax.set_yscale("log")
-    ax.yaxis.set_major_formatter(ticker.FuncFormatter(
-        lambda y, _: f"{y:.0f}" if y >= 1 else f"{y:.2f}"))
-    ax.set_xlabel("File size")
-    ax.set_ylabel("Mediana time [ms]  (skala log)")
-    ax.set_title(title)
-    ax.legend(loc="upper left", fontsize=9)
-    _save(fig, out_dir / filename)
-
-
-def chart_file_size_total(pgp_df, age_sizes_df, out_dir):
-    pgp_sub = pgp_df[(pgp_df["category"].isin(["Encrypt", "FileSize"])) &
-                     (pgp_df["encrypted_bytes"] > 0) &
-                     (pgp_df["size_label"].isin(SIZE_ORDER_ALL))].copy()
-    pgp_sub = pgp_sub.sort_values("bytes")
-
-    fig, ax = plt.subplots(figsize=(10, 5.5))
-
-    if not pgp_sub.empty:
-        x_ref = pgp_sub["bytes"].values
-        ax.plot(x_ref, x_ref, "k:", linewidth=1.2, label="plaintext (brak overhead)")
-        grp = pgp_sub.groupby("bytes")["encrypted_bytes"].first().reset_index()
-        ax.plot(grp["bytes"].values, grp["encrypted_bytes"].values,
-                "-o", color=COLORS["pgp_soft"], linewidth=2.2, markersize=8,
-                label="pico-pgp (.pgp)")
-
-    if not age_sizes_df.empty:
-        for var in age_sizes_df["variant"].unique():
-            grp = age_sizes_df[age_sizes_df["variant"] == var].sort_values("bytes")
-            if grp.empty: continue
-            is_hw = "Hardware" in var
-            ckey  = "age_hw" if is_hw else "age_soft"
-            style = "--s" if is_hw else "-^"
-            lbl   = ("age (.age) — Hardware\nECDH soft, chip only for decrypt"
-                     if "soft-ECDH" in var else f"age (.age) — {var}")
-            ax.plot(grp["bytes"].values, grp["encrypted_bytes"].values,
-                    style, color=COLORS.get(ckey, "#888"),
-                    linewidth=2.2, markersize=8, label=lbl)
-
-    ax.set_xscale("log"); ax.set_yscale("log")
-    ax.xaxis.set_major_formatter(ticker.FuncFormatter(_bytes_fmt))
-    ax.yaxis.set_major_formatter(ticker.FuncFormatter(_bytes_fmt))
-    ax.set_xlabel("Plaintext size")
-    ax.set_ylabel("Encrypted file size")
-    ax.set_title("Total encrypted file size: pico-pgp vs age")
-    ax.legend(fontsize=9)
-    _save(fig, out_dir / "file_size_total.png")
-
-
-def chart_overhead_bytes(pgp_df, age_sizes_df, out_dir):
-    pgp_sub = pgp_df[(pgp_df["category"].isin(["Encrypt", "FileSize"])) &
-                     (pgp_df["overhead_bytes"] > 0) &
-                     (pgp_df["size_label"].isin(SIZE_ORDER_ALL))].copy()
-    pgp_sub = pgp_sub.sort_values("bytes")
-
-    fig, ax = plt.subplots(figsize=(10, 5.5))
-
-    if not pgp_sub.empty:
-        grp = pgp_sub.groupby("bytes")["overhead_bytes"].first().reset_index()
-        ax.plot(grp["bytes"].values, grp["overhead_bytes"].values,
-                "-o", color=COLORS["pgp_soft"], linewidth=2.2, markersize=8,
-                label="pico-pgp  (constant overhead ≈ 163B)")
-
-    if not age_sizes_df.empty:
-        for var in age_sizes_df["variant"].unique():
-            grp = age_sizes_df[age_sizes_df["variant"] == var].sort_values("bytes")
-            if grp.empty: continue
-            is_hw = "Hardware" in var
-            ax.plot(grp["bytes"].values, grp["overhead_bytes"].values,
-                    "--s" if is_hw else "-^",
-                    color=COLORS.get("age_hw" if is_hw else "age_soft", "#888"),
-                    linewidth=2.2, markersize=8,
-                    label="age  (≈170B header + 16B/64KB chunk)")
-
-    ax.set_xscale("log")
-    ax.xaxis.set_major_formatter(ticker.FuncFormatter(_bytes_fmt))
-    ax.yaxis.set_major_formatter(ticker.FuncFormatter(_bytes_fmt))
-    ax.set_xlabel("Plaintext size")
-    ax.set_ylabel("Overhead [bytes]  (encrypted − plaintext)")
-    ax.set_title("Encryption overhead: pico-pgp vs age")
-    ax.legend(fontsize=9)
-    _save(fig, out_dir / "file_size_overhead.png")
-
-
-def chart_header_vs_payload(pgp_df, age_sizes_df, out_dir):
-    show = ["100B", "1 KB", "64 KB", "1 MB"]
-    pgp_sub = pgp_df[(pgp_df["category"].isin(["Encrypt", "FileSize"])) &
-                     (pgp_df["header_bytes"] > 0) &
-                     (pgp_df["size_label"].isin(show))].copy()
-
-    age_sub = pd.DataFrame()
-    if not age_sizes_df.empty:
-        age_sub = age_sizes_df[
-            (age_sizes_df["variant"].str.contains("Software")) &
-            (age_sizes_df["size_label"].isin(show))
-        ].copy()
-
-    if pgp_sub.empty and age_sub.empty:
-        print("  [warn] Brak danych header vs payload"); return
-
-    labels, pgp_h, pgp_p, age_h, age_p = [], [], [], [], []
-    for sz in show:
-        pr = pgp_sub[pgp_sub["size_label"] == sz]
-        ar = age_sub[age_sub["size_label"] == sz] if not age_sub.empty \
-             else pd.DataFrame()
-        if pr.empty and ar.empty: continue
-        labels.append(sz)
-        pgp_h.append(int(pr["header_bytes"].values[0]) if not pr.empty else 0)
-        pgp_p.append(int(pr["payload_bytes"].values[0]) if not pr.empty else 0)
-        age_h.append(int(ar["header_bytes"].values[0]) if not ar.empty else 0)
-        age_p.append(int(ar["payload_bytes"].values[0]) if not ar.empty else 0)
-
-    if not labels: return
-
-    x = np.arange(len(labels)); w = 0.35
-    fig, ax = plt.subplots(figsize=(10, 5.5))
-
-    b1 = ax.bar(x - w/2, pgp_h, w, label="pico-pgp Header (PKESK)",
-                color=COLORS["pgp_soft"], alpha=0.9, edgecolor="black", lw=0.7)
-    ax.bar(x - w/2, pgp_p, w, bottom=pgp_h,
-           label="pico-pgp Payload (SEIPD)",
-           color=COLORS["pgp_soft"], alpha=0.4, edgecolor="black",
-           lw=0.7, hatch="...")
-    b3 = ax.bar(x + w/2, age_h, w, label="age Header (stanza)",
-                color=COLORS["age_soft"], alpha=0.9, edgecolor="black", lw=0.7)
-    ax.bar(x + w/2, age_p, w, bottom=age_h,
-           label="age Payload (ciphertext)",
-           color=COLORS["age_soft"], alpha=0.4, edgecolor="black",
-           lw=0.7, hatch="...")
-
-    for ph, pp, ah, ap_val in zip(pgp_h, pgp_p, age_h, age_p):
-        pass  
-    for i, (ph, pp, ah, ap_v, lbl) in enumerate(
-            zip(pgp_h, pgp_p, age_h, age_p, labels)):
-        for xoff, h, p in [(i - w/2, ph, pp), (i + w/2, ah, ap_v)]:
-            total = h + p
-            if total > 0:
-                ax.text(xoff, total * 1.03, _bytes_fmt_short(total),
-                        ha="center", va="bottom", fontsize=8)
-
-    ax.set_xticks(x); ax.set_xticklabels(labels)
-    ax.set_ylabel("Size [bytes]")
-    ax.set_title("Encrypted file structure: header vs payload\npico-pgp vs age")
-    ax.legend(fontsize=9, loc="upper left")
-    ax.yaxis.set_major_formatter(ticker.FuncFormatter(_bytes_fmt))
-    _save(fig, out_dir / "header_vs_payload.png")
-
-
-def chart_overhead_ratio(df, out_dir):
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
-    for ax, cat in zip(axes, ["Encrypt", "Decrypt"]):
-        sub = df[(df["category"] == cat) &
-                 (df["size_label"].isin(SIZE_ORDER_ALL))].copy()
-        if sub.empty:
-            ax.set_title(f"{cat} — brak danych"); continue
-        x = np.arange(len(SIZE_ORDER_ALL)); w = 0.35
-        for i, src in enumerate(["pgp", "age"]):
-            ratios, valid_x = [], []
-            for j, sz in enumerate(SIZE_ORDER_ALL):
-                soft = sub[(sub["source"] == src) & (sub["variant"] == "Software") &
-                           (sub["size_label"] == sz)]["median_ms"]
-                hw   = sub[(sub["source"] == src) & (sub["variant"] == "Hardware") &
-                           (sub["size_label"] == sz)]["median_ms"]
-                if soft.empty or hw.empty or soft.values[0] == 0: continue
-                ratios.append(hw.values[0] / soft.values[0])
-                valid_x.append(j)
-            if not ratios: continue
-            ckey  = f"{src}_hw"
-            label = f"{'pico-pgp' if src == 'pgp' else 'age'}"
-            if src == "age" and cat == "Encrypt":
-                label += "\nECDH soft"
-            bars = ax.bar([x[j] + (i - 0.5) * w for j in range(len(valid_x))],
-                          ratios, w, label=label,
-                          color=COLORS.get(ckey, "#888"),
-                          alpha=0.85, edgecolor="black", lw=0.7,
-                          hatch=HATCH.get(ckey, ""))
-            for bar, r in zip(bars, ratios):
-                ax.text(bar.get_x() + bar.get_width()/2,
-                        bar.get_height() + 0.05, f"{r:.1f}×",
-                        ha="center", va="bottom", fontsize=8.5)
-        ax.axhline(1.0, color="black", linestyle="--", lw=1.2,
-                   label="baseline (1×)")
-        ax.set_xticks(x)
-        ax.set_xticklabels(SIZE_ORDER_ALL, rotation=15, ha="right")
-        ax.set_title(cat); ax.set_ylabel("hw / software"); ax.legend(fontsize=8.5)
-    fig.suptitle("Overhead hardware vs software", fontsize=14, fontweight="bold")
-    plt.tight_layout()
-    _save(fig, out_dir / "overhead_ratio.png")
-
-#  Excel
-
-def chart_hw_encrypt_comparison(df, out_dir):
-    """
-    Hardware encrypt comparison: pico-pgp vs age — time vs file size.
-
-    pico-pgp Hardware Encrypt = CMD_GET_PUBLIC_KEY (I2C) + soft ECDH + SEIPD
-    age Hardware Encrypt = soft ECDH with pub key from Pico + ChaCha20
-                                (chip is NOT used for encryption in age)
-
-    The chart shows the realistic encryption time when the public key
-    comes from a hardware device — for both systems.
-    """
-    sub = df[(df["category"] == "Encrypt") &
-             (df["variant"]   == "Hardware") &
-             (df["size_label"].isin(SIZE_ORDER_ALL))].copy()
+             (df["variant"]  == "Hardware") &
+             (df["size_label"].isin(SIZE_ORDER))].copy()
 
     if sub.empty:
-        print("  [warn] No Hardware Encrypt data - skipping chart")
-        return
+        print(f"\t[warn] No {category} data"); return
 
-    sub["_o"] = sub["size_label"].map(
-        {k: i for i, k in enumerate(SIZE_ORDER_ALL)})
+    order_map = {k: i for i, k in enumerate(SIZE_ORDER)}
+    sub["_o"] = sub["size_label"].map(order_map)
     sub = sub.sort_values("_o")
-
-    fig, ax = plt.subplots(figsize=(10, 5.5))
 
     for src in ["pgp", "age"]:
         grp = sub[sub["source"] == src]
+        
         if grp.empty:
             continue
+        
+        ckey  = f"{src}_hw"
+        label = f"{'pico-pgp' if src == 'pgp' else 'age'}  Hardware"
+        style = "-o" if src == "pgp" else "--s"
 
-        ckey = f"{src}_hw"
-        if src == "pgp":
-            label = "pico-pgp Hardware\n(CMD_GET_PUBLIC_KEY + soft ECDH + SEIPD)"
-            style = "-o"
+        ax.plot(grp["size_label"].values, grp["median_ms"].values, style, label=label, color=COLORS.get(ckey, "#888"), linewidth=2.4, markersize=8)
+
+    yvals = sub["median_ms"].values
+    if len(yvals) > 0:
+        ymin, ymax = yvals.min(), yvals.max()
+        span_decades = np.log10(ymax / ymin) if ymin > 0 else 0
+        if span_decades < 0.5:
+            ax.set_ylim(ymin * 0.5, ymax * 2.0)
         else:
-            label = "age Hardware\nECDH soft — chip only for decryption"
-            style = "--s"
-
-        ax.plot(grp["size_label"].values, grp["median_ms"].values,
-                style, label=label,
-                color=COLORS.get(ckey, "#888"),
-                linewidth=2.2, markersize=8)
-
-        if src == "pgp" and not all(
-                grp["min_ms"].values == grp["max_ms"].values):
-            ax.fill_between(grp["size_label"].values,
-                            grp["min_ms"].values,
-                            grp["max_ms"].values,
-                            alpha=0.15, color=COLORS.get(ckey, "#888"))
-    
-    for src in ["pgp", "age"]:
-        soft = df[(df["category"]   == "Encrypt") &
-                  (df["variant"]    == "Software") &
-                  (df["source"]     == src) &
-                  (df["size_label"].isin(SIZE_ORDER_ALL))].copy()
-        soft["_o"] = soft["size_label"].map(
-            {k: i for i, k in enumerate(SIZE_ORDER_ALL)})
-        soft = soft.sort_values("_o")
-        if soft.empty:
-            continue
-        name = "pico-pgp" if src == "pgp" else "age"
-        ax.plot(soft["size_label"].values, soft["median_ms"].values,
-                ":", color=COLORS.get(f"{src}_soft", "#aaa"),
-                linewidth=1.4, alpha=0.6,
-                label=f"{name} Software (referencja)")
+            ax.set_ylim(ymin * 0.3, ymax * 3.0)
 
     ax.set_yscale("log")
-    ax.yaxis.set_major_formatter(ticker.FuncFormatter(
-        lambda y, _: f"{y:.0f}" if y >= 1 else f"{y:.3f}"))
-    ax.set_xlabel("File Size")
-    ax.set_ylabel("Median Time [ms]  (log scale)")
-    ax.set_title(
-        "Hardware Encryption: pico-pgp vs age\n(dashed lines = software baseline)")
-    ax.legend(loc="upper left", fontsize=9)
-    _save(fig, out_dir / "hw_encrypt_comparison.png")
+    ax.yaxis.set_major_locator(ticker.LogLocator(base=10, numticks=15))
+    ax.yaxis.set_minor_locator(ticker.LogLocator(base=10, subs=np.arange(2,10)*0.1, numticks=30))
+    ax.yaxis.set_major_formatter(ticker.FuncFormatter(_ms_label))
+    ax.yaxis.set_minor_formatter(ticker.NullFormatter())
+    ax.set_xlabel("File size")
+    ax.set_ylabel("Median time [ms] (log scale)")
+    ax.set_title(f"{category} — pico-pgp vs age")
+    if show_legend:
+        ax.legend(loc="upper left", fontsize=9)
 
 
-def chart_hw_decrypt_comparison(df, out_dir):
-    """
-    Hardware decrypt comparison: pico-pgp vs age — time vs file size.
+def chart_encrypt_time(df: pd.DataFrame, out_dir: Path):
+    fig, ax = plt.subplots(figsize=(10, 5.5))
+    _time_vs_size(df, "Encrypt", ax)
+    _save(fig, out_dir / "02_encrypt_time.png", "Encrypt log-line")
 
-    It shows three lines:
-      - pico-pgp Hardware Decrypt (hardware ECDH + AES-CFB)
-      - age Hardware Decrypt (hardware ECDH + ChaCha20)
-      - pico-pgp Software Decrypt (soft ECDH + AES-CFB) - as a reference
 
-    For small files ECDH dominates (~79ms constant), for large files it increases
-    the cost of decrypting the data itself.
-    """
-    dec = df[df["category"] == "Decrypt"].copy()
-    if dec.empty:
-        print("  [warn] Brak danych Decrypt — pomijam wykres hw_decrypt")
-        return
+def chart_decrypt_time(df: pd.DataFrame, out_dir: Path):
+    fig, ax = plt.subplots(figsize=(10, 5.5))
+    _time_vs_size(df, "Decrypt", ax)
+    _save(fig, out_dir / "03_decrypt_time.png", "Decrypt log-line")
 
-    dec["_o"] = dec["size_label"].map(
-        {k: i for i, k in enumerate(SIZE_ORDER_ALL)})
-    dec = dec.sort_values("_o")
 
+def chart_encrypt_decrypt_combined(df: pd.DataFrame, out_dir: Path):
+    fig, axes = plt.subplots(1, 2, figsize=(18, 5.5), sharey=False)
+    for ax, cat in zip(axes, ["Encrypt", "Decrypt"]):
+        _time_vs_size(df, cat, ax, show_legend=True)
+
+    fig.suptitle("Encryption and Decryption Time - Pico-Pgp vs Age", fontsize=14, fontweight="bold", y=1.01)
+    plt.tight_layout()
+    _save(fig, out_dir / "04_encrypt_decrypt_combined.png", "combined log")
+
+
+# Chart 05: Total file size
+
+def chart_file_size_total(pgp_df: pd.DataFrame, age_sizes_df: pd.DataFrame, out_dir: Path):
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    ref_x = np.logspace(2, 8, 200)
+    ax.plot(ref_x, ref_x, "k:", linewidth=1.2, alpha=0.6, label="plaintext (no overhead)")
+
+    pgp_sub = pgp_df[
+        (pgp_df["category"].isin(["FileSize", "Encrypt"])) &
+        (pgp_df["encrypted_bytes"] > 0)
+    ].copy().sort_values("bytes")
+
+    if not pgp_sub.empty:
+        grp = pgp_sub.groupby("bytes")["encrypted_bytes"].first().reset_index()
+        ax.plot(grp["bytes"].values, grp["encrypted_bytes"].values, "-o", color=COLORS["pgp_hw"], linewidth=2.4, markersize=9, label="pico-pgp  (.pgp)")
+        
+        for bx, by in zip(grp["bytes"].values, grp["encrypted_bytes"].values):
+            ax.annotate(f"+{_bytes_short(by - bx)}", xy=(bx, by), xytext=(4, 4), textcoords="offset points", fontsize=7.5, color=COLORS["pgp_hw"])
+
+    if not age_sizes_df.empty:
+        hw_variants = age_sizes_df[age_sizes_df["variant"].str.contains("Hardware|soft-ECDH")]
+        for var in sorted(hw_variants["variant"].unique()):
+            grp = hw_variants[hw_variants["variant"] == var].sort_values("bytes")
+            if grp.empty:
+                continue
+            lbl = f"age (.age) — {var}"
+            ax.plot(grp["bytes"].values, grp["encrypted_bytes"].values, "--s", color=COLORS["age_hw"], linewidth=2.4, markersize=8, label=lbl)
+
+    ax.set_xscale("log"); ax.set_yscale("log")
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(_bytes_label))
+    ax.yaxis.set_major_formatter(ticker.FuncFormatter(_bytes_label))
+    ax.set_xlabel("Plaintext size")
+    ax.set_ylabel("Encrypted file size")
+    ax.set_title("File size after encryption — pico-pgp vs age")
+    ax.legend(fontsize=9, loc="upper left")
+    _save(fig, out_dir / "05_file_size_total.png", "size log/log")
+
+
+# Chart 06: Overhead bytes
+
+def chart_overhead_bytes(pgp_df: pd.DataFrame, age_sizes_df: pd.DataFrame, out_dir: Path):
     fig, ax = plt.subplots(figsize=(10, 5.5))
 
-    plot_specs = [
-        # (source, variant, label, style, color_key, linewidth)
-        ("pgp", "Hardware", "pico-pgp Hardware\n(chip ECDH + AES-CFB + SHA-1 MDC)",
-         "-o",  "pgp_hw",  2.2),
-        ("age", "Hardware", "age Hardware\n(chip ECDH + ChaCha20-Poly1305)",
-         "--s", "age_hw",  2.2),
-        ("pgp", "Software", "pico-pgp Software (reference)",
-         ":",   "pgp_soft", 1.4),
-        ("age", "Software", "age Software (reference)",
-         ":",   "age_soft", 1.4),
-    ]
+    pgp_sub = pgp_df[ 
+        (pgp_df["category"].isin(["FileSize", "Encrypt"])) &
+        (pgp_df["overhead_bytes"] > 0)
+    ].copy().sort_values("bytes")
 
-    has_data = False
-    for src, var, label, style, ckey, lw in plot_specs:
-        grp = dec[(dec["source"] == src) & (dec["variant"] == var) &
-                  (dec["size_label"].isin(SIZE_ORDER_ALL))]
-        if grp.empty:
-            continue
-        has_data = True
-        alpha = 0.5 if "reference" in label else 1.0
-        ax.plot(grp["size_label"].values, grp["median_ms"].values,
-                style, label=label,
-                color=COLORS.get(ckey, "#888"),
-                linewidth=lw, markersize=8, alpha=alpha)
-        if src == "pgp" and var == "Hardware" and not all(
-                grp["min_ms"].values == grp["max_ms"].values):
-            ax.fill_between(grp["size_label"].values,
-                            grp["min_ms"].values,
-                            grp["max_ms"].values,
-                            alpha=0.12, color=COLORS.get(ckey, "#888"))
+    if not pgp_sub.empty:
+        grp = pgp_sub.groupby("bytes")["overhead_bytes"].first().reset_index()
+        ax.plot(grp["bytes"].values, grp["overhead_bytes"].values, "-o", color=COLORS["pgp_hw"], linewidth=2.4, markersize=9, label="pico-pgp  (PKESK + SEIPD header ≈ stały)")
 
-    if not has_data:
-        print("  [warn] No Hardware Decrypt data - skipping chart")
-        plt.close(fig)
-        return
+    if not age_sizes_df.empty:
+        hw_variants = age_sizes_df[age_sizes_df["variant"].str.contains("Hardware|soft-ECDH")]
+        for var in sorted(hw_variants["variant"].unique()):
+            grp = hw_variants[hw_variants["variant"] == var].sort_values("bytes")
+            
+            if grp.empty:
+                continue
+            
+            ax.plot(grp["bytes"].values, grp["overhead_bytes"].values, "--s", color=COLORS["age_hw"], linewidth=2.4, markersize=8, label=f"age — {var}  (nagłówek + 16 B/64 KB)")
 
-    ax.set_yscale("log")
-    ax.yaxis.set_major_formatter(ticker.FuncFormatter(
-        lambda y, _: f"{y:.0f}" if y >= 1 else f"{y:.3f}"))
-    ax.set_xlabel("File Size")
-    ax.set_ylabel("Median Time [ms]  (log scale)")
-    ax.set_title(
-        "Hardware Decrypt: pico-pgp vs age\n"
-        "(dashed lines = software baseline)")
-    ax.legend(loc="upper left", fontsize=9)
-
-    ax.annotate(
-        "Hardware time = ECDH (~79ms constant) + decryption of data\n"
-        "For small files ECDH dominates, for large files — the data",
-        xy=(0.97, 0.03), xycoords="axes fraction",
-        ha="right", va="bottom", fontsize=8,
-        bbox=dict(boxstyle="round,pad=0.3", facecolor="lightyellow",
-                  edgecolor="#ccc", alpha=0.9),
-    )
-
-    _save(fig, out_dir / "hw_decrypt_comparison.png")
+    ax.set_xscale("log")
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(_bytes_label))
+    ax.yaxis.set_major_formatter(ticker.FuncFormatter(_bytes_label))
+    ax.set_xlabel("Plaintext size")
+    ax.set_ylabel("Overhead [bytes]  (encrypted − plaintext)")
+    ax.set_title("Overhead size — pico-pgp vs age")
+    ax.legend(fontsize=9)
+    _save(fig, out_dir / "06_overhead_bytes.png", "overhead bytes")
 
 
-def _style_ws(ws, hex_color):
+# Chart 07: Overhead percent
+
+def chart_overhead_pct(pgp_df: pd.DataFrame, age_sizes_df: pd.DataFrame, out_dir: Path):
+    fig, ax = plt.subplots(figsize=(10, 5.5))
+
+    pgp_sub = pgp_df[
+        (pgp_df["category"].isin(["FileSize", "Encrypt"])) &
+        (pgp_df["overhead_bytes"] > 0) &
+        (pgp_df["bytes"] > 0)
+    ].copy().sort_values("bytes")
+
+    if not pgp_sub.empty:
+        grp = pgp_sub.groupby("bytes")[["overhead_bytes"]].first().reset_index()
+        pct = grp["overhead_bytes"].values / grp["bytes"].values * 100
+        ax.plot(grp["bytes"].values, pct, "-o", color=COLORS["pgp_hw"], linewidth=2.4, markersize=9, label="pico-pgp")
+
+    if not age_sizes_df.empty:
+        hw_variants = age_sizes_df[
+            age_sizes_df["variant"].str.contains("Hardware|soft-ECDH") &
+            (age_sizes_df["bytes"] > 0)
+        ]
+        for var in sorted(hw_variants["variant"].unique()):
+            grp = hw_variants[hw_variants["variant"] == var].sort_values("bytes")
+            
+            if grp.empty:
+                continue
+            
+            pct = grp["overhead_bytes"].values / grp["bytes"].values * 100
+            ax.plot(grp["bytes"].values, pct, "--s", color=COLORS["age_hw"], linewidth=2.4, markersize=8, label=f"age — {var}")
+
+    ax.set_xscale("log")
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(_bytes_label))
+    ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, _: f"{y:.1f}%" if y < 1 else f"{y:.0f}%"))
+    ax.set_xlabel("Plaintext size")
+    ax.set_ylabel("Overhead  [%  plaintext]")
+    ax.set_title("Percentage overhead — pico-pgp vs age")
+    ax.legend(fontsize=9)
+    _save(fig, out_dir / "07_overhead_pct.png", "overhead %")
+
+# Excel export 
+
+def _style_ws(ws, hex_color: str):
     from openpyxl.styles import Font, PatternFill, Alignment
     fill  = PatternFill("solid", fgColor=hex_color)
     font  = Font(color="FFFFFF", bold=True)
     align = Alignment(horizontal="center", vertical="center")
+    
     for cell in ws[1]:
         cell.fill = fill; cell.font = font; cell.alignment = align
+    
     ws.row_dimensions[1].height = 20
+    
     for col in ws.columns:
         mx = max((len(str(c.value or "")) for c in col), default=10)
-        ws.column_dimensions[col[0].column_letter].width = min(mx + 3, 40)
+        ws.column_dimensions[col[0].column_letter].width = min(mx + 3, 42)
 
 
-def write_excel(pgp_df, age_df, age_sizes_df, combined, out_dir):
+def write_excel(pgp_df: pd.DataFrame, age_df: pd.DataFrame, age_sizes_df: pd.DataFrame, combined: pd.DataFrame, out_dir: Path):
     path = out_dir / "comparison.xlsx"
+
+    cols = [
+        "Operation", "Size",
+        "PGP HW [ms]", "PGP min [ms]", "PGP max [ms]",
+        "age HW [ms]",
+        "PGP enc [B]", "PGP overhead [B]", "PGP header [B]", "PGP payload [B]",
+        "age enc [B]", "age overhead [B]", "age header [B]", "age payload [B]",
+    ]
+
+    ops = [
+        ("ECDH", "–"),
+        *[("Encrypt", sz) for sz in SIZE_ORDER],
+        *[("Decrypt", sz) for sz in SIZE_ORDER],
+    ]
+
+    rows = []
+    for cat, sz in ops:
+        row: dict = {"Operation": cat, "Size": sz}
+
+        for src, prefix in [("pgp", "PGP"), ("age", "age")]:
+            var = "Software" if cat == "ECDH" else "Hardware"
+
+            mask = (
+                (combined["source"]     == src) &
+                (combined["category"]   == cat) &
+                (combined["variant"]    == var) &
+                (combined["size_label"] == sz)
+            )
+
+            v = combined[mask]["median_ms"]
+            if v.empty and cat == "ECDH":
+                # fallback: Software
+                mask2 = (
+                    (combined["source"]   == src) &
+                    (combined["category"] == "ECDH")
+                )
+                v = combined[mask2]["median_ms"]
+
+            row[f"{prefix} HW [ms]"] = round(float(v.values[0]), 4) if not v.empty else ""
+            if src == "pgp":
+                row["PGP min [ms]"] = ""
+                row["PGP max [ms]"] = ""
+                v_min = combined[mask]["min_ms"]
+                v_max = combined[mask]["max_ms"]
+                if not v_min.empty:
+                    row["PGP min [ms]"] = round(float(v_min.values[0]), 4)
+                    row["PGP max [ms]"] = round(float(v_max.values[0]), 4)
+
+        pm_all = pgp_df[
+            (pgp_df["category"].isin(["FileSize", "Encrypt"])) &
+            (pgp_df["size_label"] == sz) &
+            (pgp_df["encrypted_bytes"] > 0)
+        ]
+
+        pm_enc = pm_all[pm_all["category"] == "Encrypt"]
+        pm = pm_enc if not pm_enc.empty else pm_all
+        
+        for col, field in [
+            ("PGP enc [B]", "encrypted_bytes"),
+            ("PGP overhead [B]", "overhead_bytes"),
+            ("PGP header [B]", "header_bytes"),
+            ("PGP payload [B]", "payload_bytes"),
+        ]:
+            row[col] = (int(pm[field].values[0])
+                        if not pm.empty and pm[field].values[0] > 0 else "")
+
+        if not age_sizes_df.empty:
+            ar = age_sizes_df[
+                (age_sizes_df["variant"].str.contains("Software")) &
+                (age_sizes_df["size_name"] == sz)
+            ]
+            for col, field in [
+                ("age enc [B]", "encrypted_bytes"),
+                ("age overhead [B]", "overhead_bytes"),
+                ("age header [B]", "header_bytes"),
+                ("age payload [B]", "payload_bytes"),
+            ]:
+                row[col] = int(ar[field].values[0]) if not ar.empty else ""
+        else:
+            for col in ["age enc [B]","age overhead [B]","age header [B]","age payload [B]"]:
+                row[col] = ""
+
+        rows.append(row)
+
+    summary_df = pd.DataFrame(rows, columns=cols)
+
     with pd.ExcelWriter(path, engine="openpyxl") as writer:
+        summary_df.to_excel(writer, sheet_name="Summary", index=False)
+        _style_ws(writer.sheets["Summary"], "37474F")
+
         if not pgp_df.empty:
             pgp_df.to_excel(writer, sheet_name="PGP Raw", index=False)
             _style_ws(writer.sheets["PGP Raw"], "1565C0")
+
         if not age_df.empty:
             age_df.to_excel(writer, sheet_name="age Raw", index=False)
             _style_ws(writer.sheets["age Raw"], "1B5E20")
+
         if not age_sizes_df.empty:
             age_sizes_df.to_excel(writer, sheet_name="age Sizes", index=False)
             _style_ws(writer.sheets["age Sizes"], "4A148C")
 
-        cols = [
-            "Operation", "Size",
-            "PGP Soft [ms]", "PGP HW [ms]",
-            "age Soft [ms]", "age HW [ms]",
-            "PGP enc [B]", "PGP overhead [B]", "PGP header [B]", "PGP payload [B]",
-            "age enc [B]", "age overhead [B]", "age header [B]", "age payload [B]",
-            "Overhead PGP hw/soft", "Overhead age hw/soft",
-        ]
-
-        ops = [("ECDH","–"),
-               ("Encrypt","100B"),("Encrypt","1 KB"),("Encrypt","64 KB"),
-               ("Encrypt","1 MB"),("Encrypt","10 MB"),("Encrypt","100 MB"),
-               ("Decrypt","100B"),("Decrypt","1 KB"),("Decrypt","64 KB"),
-               ("Decrypt","1 MB"),("Decrypt","10 MB"),("Decrypt","100 MB")]
-
-        rows = []
-        for cat, sz in ops:
-            row = {"Operation": cat, "Size": sz}
-            for src, sl in [("pgp","PGP"),("age","age")]:
-                for var, vl in [("Software","Soft"),("Hardware","HW")]:
-                    mask = ((combined["source"]==src)&(combined["category"]==cat)&
-                            (combined["variant"]==var)&(combined["size_label"]==sz))
-                    v = combined[mask]["median_ms"]
-
-                    if v.empty and src == "age" and cat == "Decrypt" and var == "Hardware" and sz == "1 KB":
-                        v_fb = combined[(combined["source"]=="age") &
-                                        (combined["category"]=="Decrypt") &
-                                        (combined["variant"]=="Hardware") &
-                                        (combined["size_label"]=="–")]["median_ms"]
-                        v = v_fb
-
-                    row[f"{sl} {vl} [ms]"] = (round(float(v.values[0]),4)
-                                               if not v.empty else "")
-                # PGP sizes
-                if src == "pgp":
-                    pm = ((pgp_df["category"].isin(["Encrypt","FileSize","Decrypt"]))&
-                          (pgp_df["size_label"]==sz))
-                    pr = pgp_df[pm]
-                    for col,field in [(f"PGP enc [B]","encrypted_bytes"),
-                                      (f"PGP overhead [B]","overhead_bytes"),
-                                      (f"PGP header [B]","header_bytes"),
-                                      (f"PGP payload [B]","payload_bytes")]:
-                        row[col] = (int(pr[field].values[0])
-                                    if not pr.empty and pr[field].values[0]>0 else "")
-                # age sizes
-                elif src == "age" and not age_sizes_df.empty:
-                    ar = age_sizes_df[(age_sizes_df["variant"].str.contains("Software"))&
-                                      (age_sizes_df["size_label"]==sz)]
-                    for col,field in [(f"age enc [B]","encrypted_bytes"),
-                                      (f"age overhead [B]","overhead_bytes"),
-                                      (f"age header [B]","header_bytes"),
-                                      (f"age payload [B]","payload_bytes")]:
-                        row[col] = (int(ar[field].values[0])
-                                    if not ar.empty else "")
-                else:
-                    for col in ["age enc [B]","age overhead [B]",
-                                "age header [B]","age payload [B]"]:
-                        row[col] = ""
-            for sl in ["PGP","age"]:
-                s = row.get(f"{sl} Soft [ms]","")
-                h = row.get(f"{sl} HW [ms]","")
-                row[f"Overhead {sl} hw/soft"] = (
-                    round(h/s,2) if isinstance(s,float) and
-                    isinstance(h,float) and s>0 else "")
-            rows.append(row)
-
-        from openpyxl.styles import PatternFill
-        summary_df = pd.DataFrame(rows, columns=cols)
-        summary_df.to_excel(writer, sheet_name="Summary", index=False)
-        ws = writer.sheets["Summary"]
-        _style_ws(ws, "37474F")
-        alt = PatternFill("solid", fgColor="ECEFF1")
-        for ri in range(2, len(rows)+2):
+        from openpyxl.styles import PatternFill as PF
+        alt = PF("solid", fgColor="ECEFF1")
+        ws  = writer.sheets["Summary"]
+        for ri in range(2, len(rows) + 2):
             if ri % 2 == 0:
-                for cell in ws[ri]: cell.fill = alt
+                for cell in ws[ri]:
+                    cell.fill = alt
 
     print(f"  Saved: {path.name}")
 
-#  main
+
+# main 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--pgp",       default=None)
-    ap.add_argument("--age",       default=None)
-    ap.add_argument("--age-sizes", default=None)
-    ap.add_argument("--out",       required=True)
+    ap = argparse.ArgumentParser(
+        description="Generate comparison charts: pico-pgp vs age")
+    ap.add_argument("--pgp", default=None, help="pgp_bench.csv")
+    ap.add_argument("--age", default=None, help="age_raw.txt")
+    ap.add_argument("--age-sizes", default=None, help="age_sizes.csv (optional)")
+    ap.add_argument("--out", required=True, help="output directory")
     args = ap.parse_args()
 
-    out_dir    = Path(args.out)
+    out_dir = Path(args.out)
     charts_dir = out_dir / "charts"
     out_dir.mkdir(parents=True, exist_ok=True)
     charts_dir.mkdir(parents=True, exist_ok=True)
@@ -734,63 +687,55 @@ def main():
     pgp_df = age_df = age_sizes_df = pd.DataFrame()
 
     if args.pgp and Path(args.pgp).exists():
-        pgp_df = categorize(parse_pgp_csv(args.pgp))
+        pgp_df = categorize(parse_pgp_csv(Path(args.pgp)))
     else:
-        print(f"  [warn] No PGP CSV: {args.pgp}")
+        print(f"\t[warn] No PGP CSV: {args.pgp}")
 
     if args.age and Path(args.age).exists():
-        age_df = categorize(parse_age_raw(args.age))
+        age_df = categorize(parse_age_raw(Path(args.age)))
         age_df.to_csv(out_dir / "age_bench.csv", index=False)
-        print("  age CSV → age_bench.csv")
+        print("  age parsed CSV → age_bench.csv")
     else:
-        print(f"  [warn] No age raw: {args.age}")
+        print(f"\t[warn] No age raw: {args.age}")
 
     szpath = args.age_sizes
     if not szpath and args.age:
-        cand = str(Path(args.age).parent / "age_sizes.csv")
-        if Path(cand).exists():
-            szpath = cand
-            print(f"  Auto-detect age sizes: {cand}")
+        cand = Path(args.age).parent / "age_sizes.csv"
+        if cand.exists():
+            szpath = str(cand)
+            print(f"\tAuto-detect age sizes: {cand}")
 
     if szpath and Path(szpath).exists():
-        age_sizes_df = parse_age_sizes(szpath)
+        age_sizes_df = parse_age_sizes(Path(szpath))
     else:
-        print("  [info] No age_sizes.csv — age size charts will be empty")
-        print("         Generate: go test ./benchmarks/... -run TestFileSizes -v \\")
-        print("                      2>&1 | grep -E 'age,' > results/age_sizes.csv")
+        print(f"\t[info] No age_sizes.csv — size charts will skip age data")
 
     if pgp_df.empty and age_df.empty:
-        print("[ERR] No data available."); sys.exit(1)
+        print("[ERR] No timing data loaded — aborting.")
+        sys.exit(1)
 
     combined = pd.concat([pgp_df, age_df], ignore_index=True)
-    print(f"  Total timing entries: {len(combined)}")
+    print(f"\tTotal timing rows: {len(combined)}")
+
     print("\n[2/4] Generating charts...")
     chart_ecdh(combined, charts_dir)
-    chart_time_by_size(combined, "Encrypt", charts_dir,
-                       "encrypt_time_comparison.png",
-                       "Encryption time vs size — pico-pgp vs age",
-                       age_hw_note=True)
-    chart_time_by_size(combined, "Decrypt", charts_dir,
-                       "decrypt_time_comparison.png",
-                       "Decryption time vs size — pico-pgp vs age")
-    chart_hw_encrypt_comparison(combined, charts_dir)
-    chart_hw_decrypt_comparison(combined, charts_dir)
+    chart_encrypt_time(combined, charts_dir)
+    chart_decrypt_time(combined, charts_dir)
+    chart_encrypt_decrypt_combined(combined, charts_dir)
     chart_file_size_total(pgp_df, age_sizes_df, charts_dir)
     chart_overhead_bytes(pgp_df, age_sizes_df, charts_dir)
-    chart_header_vs_payload(pgp_df, age_sizes_df, charts_dir)
-    chart_overhead_ratio(combined, charts_dir)
+    chart_overhead_pct(pgp_df, age_sizes_df, charts_dir)
 
     print("\n[3/4] Generating Excel...")
     write_excel(pgp_df, age_df, age_sizes_df, combined, out_dir)
 
     print("\n[4/4] Done.\n")
-    print(f"Files in: {out_dir}/")
+    print(f"Output: {out_dir}/")
     for p in sorted(out_dir.rglob("*")):
         if p.is_file():
             s = p.stat().st_size
-            print(f"  {str(p.relative_to(out_dir)):<50}"
-                  f"  {s/1024:.1f} KB" if s > 1024 else
-                  f"  {str(p.relative_to(out_dir)):<50}  {s} B")
+            sstr = f"{s/1024:.1f} KB" if s > 1024 else f"{s} B"
+            print(f"  {str(p.relative_to(out_dir)):<52}  {sstr}")
     print()
 
 
