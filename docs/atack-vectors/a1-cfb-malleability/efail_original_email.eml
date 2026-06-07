@@ -1,0 +1,23 @@
+From: bob@example.com
+To: alicja@example.com
+Subject: Raport finansowy Q1
+Date: Mon, 31 May 2026 10:00:00 +0200
+Content-Type: multipart/mixed; boundary="boundary_original"
+MIME-Version: 1.0
+
+--boundary_original
+Content-Type: text/plain; charset=utf-8
+
+Alicjo, w załączniku zaszyfrowany raport.
+
+--boundary_original
+Content-Type: application/octet-stream; name="raport.gpg"
+Content-Disposition: attachment; filename="raport.gpg"
+Content-Transfer-Encoding: base64
+
+jA0ECQMCqQ9iabZ+fMb/pJ3hmXcgStEpjMqZJctBmzd6Zja/Iwu0Ez6ddqkFjqjw
+bxhphtbNo6/oLqIyA9N0KNx34zA6ZelQ1QMYSTtC7BcNbU39sSgIDyVKBjTAwexf
+ildKt3ex8BZsLb3eB5cGlNcW1S/D1Bw+OAzNtVR10EeA6DxA5afNnXrIeJZRRnfH
+L6lfI0casDZBdM8QStXBLFek8sTl+C7gNxiLV+69
+
+--boundary_original--
