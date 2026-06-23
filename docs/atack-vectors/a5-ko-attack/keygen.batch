@@ -1,0 +1,8 @@
+Key-Type: eddsa
+Key-Curve: ed25519
+Key-Usage: sign
+Name-Real: Victim
+Name-Email: victim@test.com
+Expire-Date: 0
+Passphrase: zaq1@WSX
+%commit
