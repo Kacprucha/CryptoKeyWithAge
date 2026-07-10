@@ -42,7 +42,7 @@ func (r *PicoRecipient) Wrap(fileKey []byte) ([]*age.Stanza, error) {
 
 	kek := hkdfDerive(shared, ephPub, r.DevicePub, "age-encryption.org/v1/pico-p256")
 
-	encFileKey, err := aesGCMWrap(kek, fileKey)
+	encFileKey, err := chacha20Poly1305Wrap(kek, fileKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to wrap file key: %w", err)
 	}

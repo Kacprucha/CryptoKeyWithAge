@@ -60,7 +60,7 @@ func (id *PicoIdentity) Unwrap(stanza []*age.Stanza) ([]byte, error) {
 
 		kek := hkdfDerive(shared, ephPub, devPub, "age-encryption.org/v1/pico-p256")
 
-		fileKey, err := aesGCMUnwrap(kek, s.Body)
+		fileKey, err := chacha20Poly1305Unwrap(kek, s.Body)
 		if err != nil {
 			continue
 		}
@@ -103,7 +103,7 @@ func (id *PicoIdentityFast) Unwrap(stanza []*age.Stanza) ([]byte, error) {
 
 		kek := hkdfDerive(shared, ephPub, devPub, "age-encryption.org/v1/pico-p256")
 
-		fileKey, err := aesGCMUnwrap(kek, s.Body)
+		fileKey, err := chacha20Poly1305Unwrap(kek, s.Body)
 		if err != nil {
 			continue
 		}
