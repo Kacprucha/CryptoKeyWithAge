@@ -1,0 +1,22 @@
+benchmark,median_ms,min_ms,max_ms,n_runs,bytes,encrypted_bytes,overhead_bytes,header_bytes,payload_bytes
+BenchmarkECDH_Software,0.5611,0.5588,0.5595,20,0,0,0,0,0
+BenchmarkECDH_Hardware,78.0387,78.0027,78.9986,20,0,0,0,0,0
+BenchmarkEncrypt_Hardware/100B,1.8398,1.7482,2.2714,20,100,291,191,0,0
+BenchmarkEncrypt_Hardware/1KB,1.8369,1.7582,1.9731,20,1024,470,0,0,0
+BenchmarkEncrypt_Hardware/64KB,1.9653,1.8131,2.0835,20,65536,794,0,0,0
+BenchmarkEncrypt_Hardware/1MB,4.0883,4.0163,4.6358,20,1048576,4608,0,0,0
+BenchmarkEncrypt_Hardware/10MB,24.5687,24.2407,25.5795,20,10485760,41229,0,0,0
+BenchmarkEncrypt_Hardware/100MB,227.2330,225.4904,230.9373,20,104857600,407490,0,0,0
+BenchmarkDecrypt_HW/100B,79.8157,79.0234,80.4934,20,100,0,0,0,0
+BenchmarkDecrypt_HW/1KB,79.7383,78.8899,80.6165,20,1024,0,0,0,0
+BenchmarkDecrypt_HW/64KB,79.8406,78.8198,80.1626,20,65536,0,0,0,0
+BenchmarkDecrypt_HW/1MB,79.8235,79.4182,80.9857,20,1048576,0,0,0,0
+BenchmarkDecrypt_HW/10MB,82.5503,81.6040,83.0884,20,10485760,0,0,0,0
+BenchmarkDecrypt_HW/100MB,110.6476,109.8422,111.5141,20,104857600,0,0,0,0
+# FileSize columns: benchmark,plaintext_B,pgp_B,overhead_B
+BenchmarkFileSize/100B,100,294,194
+BenchmarkFileSize/1KB,1024,473,0
+BenchmarkFileSize/64KB,65536,800,0
+BenchmarkFileSize/1MB,1048576,4611,0
+BenchmarkFileSize/10MB,10485760,41234,0
+BenchmarkFileSize/100MB,104857600,407495,0
