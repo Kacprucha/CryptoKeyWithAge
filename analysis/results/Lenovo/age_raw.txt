@@ -12,40 +12,40 @@ age,Hardware[soft-ECDH],64KB,65536,65801,265,233,65568
 age,Hardware[soft-ECDH],1MB,1048576,1049081,505,233,1048848
 age,Hardware[soft-ECDH],10MB,10485760,10488569,2809,233,10488336
 age,Hardware[soft-ECDH],100MB,104857600,104883449,25849,233,104883216
---- PASS: TestFileSizes (0.57s)
+--- PASS: TestFileSizes (0.60s)
 goos: linux
 goarch: amd64
 pkg: github.com/Kacprucha/age-go-client/benchmarks
 cpu: 11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz
 BenchmarkECDH_Software
-BenchmarkECDH_Software-8      	  119365	     98543 ns/op	     560 B/op	       9 allocs/op
+BenchmarkECDH_Software-8      	  119420	     99689 ns/op	     560 B/op	       9 allocs/op
 BenchmarkECDH_Hardware
-BenchmarkECDH_Hardware-8      	     154	  77122725 ns/op	    1441 B/op	      21 allocs/op
+BenchmarkECDH_Hardware-8      	     154	  77111504 ns/op	    1445 B/op	      21 allocs/op
 BenchmarkEncrypt_Hardware
 BenchmarkEncrypt_Hardware/100B
-BenchmarkEncrypt_Hardware/100B-8         	   69474	    176609 ns/op	   0.57 MB/s	   10668 B/op	     122 allocs/op
+BenchmarkEncrypt_Hardware/100B-8         	   68869	    171137 ns/op	   0.58 MB/s	   10668 B/op	     122 allocs/op
 BenchmarkEncrypt_Hardware/1KB
-BenchmarkEncrypt_Hardware/1KB-8          	   63584	    190476 ns/op	   5.38 MB/s	   14301 B/op	     122 allocs/op
+BenchmarkEncrypt_Hardware/1KB-8          	   59586	    189071 ns/op	   5.42 MB/s	   14301 B/op	     122 allocs/op
 BenchmarkEncrypt_Hardware/64KB
-BenchmarkEncrypt_Hardware/64KB-8         	   30166	    387728 ns/op	 169.03 MB/s	  280265 B/op	     122 allocs/op
+BenchmarkEncrypt_Hardware/64KB-8         	   30224	    388949 ns/op	 168.49 MB/s	  280264 B/op	     122 allocs/op
 BenchmarkEncrypt_Hardware/1MB
-BenchmarkEncrypt_Hardware/1MB-8          	    4838	   2919550 ns/op	 359.16 MB/s	 2492988 B/op	     128 allocs/op
+BenchmarkEncrypt_Hardware/1MB-8          	    4718	   2626024 ns/op	 399.30 MB/s	 2493118 B/op	     128 allocs/op
 BenchmarkEncrypt_Hardware/10MB
-BenchmarkEncrypt_Hardware/10MB-8         	     748	  16814949 ns/op	 623.60 MB/s	37882679 B/op	     133 allocs/op
+BenchmarkEncrypt_Hardware/10MB-8         	     752	  16567166 ns/op	 632.92 MB/s	37882679 B/op	     133 allocs/op
 BenchmarkEncrypt_Hardware/100MB
-BenchmarkEncrypt_Hardware/100MB-8        	     100	 115607094 ns/op	 907.02 MB/s	302123311 B/op	     135 allocs/op
+BenchmarkEncrypt_Hardware/100MB-8        	      86	 118061579 ns/op	 888.16 MB/s	302123317 B/op	     135 allocs/op
 BenchmarkDecrypt_Hardware
 BenchmarkDecrypt_Hardware/100B
-BenchmarkDecrypt_Hardware/100B-8         	      88	 133669598 ns/op	   0.00 MB/s	  153548 B/op	     133 allocs/op
+BenchmarkDecrypt_Hardware/100B-8         	  411091	     27394 ns/op	   3.65 MB/s	  151300 B/op	     105 allocs/op
 BenchmarkDecrypt_Hardware/1KB
-BenchmarkDecrypt_Hardware/1KB-8          	      88	 133633101 ns/op	   0.01 MB/s	  153343 B/op	     133 allocs/op
+BenchmarkDecrypt_Hardware/1KB-8          	  403280	     28335 ns/op	  36.14 MB/s	  151292 B/op	     105 allocs/op
 BenchmarkDecrypt_Hardware/64KB
-BenchmarkDecrypt_Hardware/64KB-8         	      88	 133803558 ns/op	   0.49 MB/s	  153245 B/op	     133 allocs/op
+BenchmarkDecrypt_Hardware/64KB-8         	   49938	    230105 ns/op	 284.81 MB/s	  150956 B/op	     105 allocs/op
 BenchmarkDecrypt_Hardware/1MB
-BenchmarkDecrypt_Hardware/1MB-8          	      87	 135594568 ns/op	   7.73 MB/s	 1138484 B/op	     151 allocs/op
+BenchmarkDecrypt_Hardware/1MB-8          	    5800	   1888799 ns/op	 555.15 MB/s	 1135132 B/op	     122 allocs/op
 BenchmarkDecrypt_Hardware/10MB
-BenchmarkDecrypt_Hardware/10MB-8         	      76	 151078032 ns/op	  69.41 MB/s	10575521 B/op	     295 allocs/op
+BenchmarkDecrypt_Hardware/10MB-8         	     746	  15560368 ns/op	 673.88 MB/s	10572378 B/op	     267 allocs/op
 BenchmarkDecrypt_Hardware/100MB
-BenchmarkDecrypt_Hardware/100MB-8        	      45	 258352589 ns/op	 405.87 MB/s	104947346 B/op	    1736 allocs/op
+BenchmarkDecrypt_Hardware/100MB-8        	     122	  94677633 ns/op	1107.52 MB/s	104944588 B/op	    1708 allocs/op
 PASS
-ok  	github.com/Kacprucha/age-go-client/benchmarks	207.746s
+ok  	github.com/Kacprucha/age-go-client/benchmarks	219.286s
