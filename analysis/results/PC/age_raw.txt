@@ -18,34 +18,34 @@ goarch: amd64
 pkg: github.com/Kacprucha/age-go-client/benchmarks
 cpu: AMD Ryzen 5 9600X 6-Core Processor             
 BenchmarkECDH_Software
-BenchmarkECDH_Software-12       	  353353	     33700 ns/op	     560 B/op	       9 allocs/op
+BenchmarkECDH_Software-12       	  356763	     33736 ns/op	     560 B/op	       9 allocs/op
 BenchmarkECDH_Hardware
-BenchmarkECDH_Hardware-12       	     152	  78333370 ns/op	    1442 B/op	      21 allocs/op
+BenchmarkECDH_Hardware-12       	     152	  78407263 ns/op	    1440 B/op	      21 allocs/op
 BenchmarkEncrypt_Hardware
 BenchmarkEncrypt_Hardware/100B
-BenchmarkEncrypt_Hardware/100B-12         	  310849	     38748 ns/op	   2.58 MB/s	   10670 B/op	     122 allocs/op
+BenchmarkEncrypt_Hardware/100B-12         	  308029	     38697 ns/op	   2.58 MB/s	   10670 B/op	     122 allocs/op
 BenchmarkEncrypt_Hardware/1KB
-BenchmarkEncrypt_Hardware/1KB-12          	  302682	     39427 ns/op	  25.97 MB/s	   14304 B/op	     122 allocs/op
+BenchmarkEncrypt_Hardware/1KB-12          	  303489	     39406 ns/op	  25.99 MB/s	   14304 B/op	     122 allocs/op
 BenchmarkEncrypt_Hardware/64KB
-BenchmarkEncrypt_Hardware/64KB-12         	  167623	     72296 ns/op	 906.49 MB/s	  280336 B/op	     122 allocs/op
+BenchmarkEncrypt_Hardware/64KB-12         	  166675	     69832 ns/op	 938.47 MB/s	  280341 B/op	     122 allocs/op
 BenchmarkEncrypt_Hardware/1MB
-BenchmarkEncrypt_Hardware/1MB-12          	   25104	    504906 ns/op	2076.77 MB/s	 2493814 B/op	     129 allocs/op
+BenchmarkEncrypt_Hardware/1MB-12          	   25056	    521865 ns/op	2009.29 MB/s	 2493781 B/op	     130 allocs/op
 BenchmarkEncrypt_Hardware/10MB
-BenchmarkEncrypt_Hardware/10MB-12         	    1890	   6201794 ns/op	1690.76 MB/s	37883374 B/op	     133 allocs/op
+BenchmarkEncrypt_Hardware/10MB-12         	    1869	   6296836 ns/op	1665.24 MB/s	37883369 B/op	     133 allocs/op
 BenchmarkEncrypt_Hardware/100MB
-BenchmarkEncrypt_Hardware/100MB-12        	     189	  63746074 ns/op	1644.93 MB/s	302123641 B/op	     135 allocs/op
+BenchmarkEncrypt_Hardware/100MB-12        	     188	  63323358 ns/op	1655.91 MB/s	302123636 B/op	     135 allocs/op
 BenchmarkDecrypt_Hardware
 BenchmarkDecrypt_Hardware/100B
-BenchmarkDecrypt_Hardware/100B-12         	      88	 135182467 ns/op	   0.00 MB/s	  153607 B/op	     133 allocs/op
+BenchmarkDecrypt_Hardware/100B-12         	  883281	     13816 ns/op	   7.24 MB/s	  151464 B/op	     105 allocs/op
 BenchmarkDecrypt_Hardware/1KB
-BenchmarkDecrypt_Hardware/1KB-12          	      88	 135248458 ns/op	   0.01 MB/s	  153803 B/op	     133 allocs/op
+BenchmarkDecrypt_Hardware/1KB-12          	  862858	     13971 ns/op	  73.30 MB/s	  151457 B/op	     105 allocs/op
 BenchmarkDecrypt_Hardware/64KB
-BenchmarkDecrypt_Hardware/64KB-12         	      87	 135199346 ns/op	   0.48 MB/s	  153621 B/op	     133 allocs/op
+BenchmarkDecrypt_Hardware/64KB-12         	  236608	     50022 ns/op	1310.14 MB/s	  150996 B/op	     105 allocs/op
 BenchmarkDecrypt_Hardware/1MB
-BenchmarkDecrypt_Hardware/1MB-12          	      88	 135399485 ns/op	   7.74 MB/s	 1141178 B/op	     152 allocs/op
+BenchmarkDecrypt_Hardware/1MB-12          	   29388	    408488 ns/op	2566.97 MB/s	 1136048 B/op	     123 allocs/op
 BenchmarkDecrypt_Hardware/10MB
-BenchmarkDecrypt_Hardware/10MB-12         	      85	 139528984 ns/op	  75.15 MB/s	10578029 B/op	     296 allocs/op
+BenchmarkDecrypt_Hardware/10MB-12         	    3195	   3716526 ns/op	2821.39 MB/s	10573098 B/op	     267 allocs/op
 BenchmarkDecrypt_Hardware/100MB
-BenchmarkDecrypt_Hardware/100MB-12        	      66	 178525776 ns/op	 587.35 MB/s	104950829 B/op	    1737 allocs/op
+BenchmarkDecrypt_Hardware/100MB-12        	     276	  43479608 ns/op	2411.65 MB/s	104945563 B/op	    1708 allocs/op
 PASS
-ok  	github.com/Kacprucha/age-go-client/benchmarks	191.803s
+ok  	github.com/Kacprucha/age-go-client/benchmarks	203.584s
