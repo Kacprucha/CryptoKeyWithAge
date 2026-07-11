@@ -295,11 +295,18 @@ static void bench_encrypt_hw(int n)
 /* Benchmark 4: Hardware Decryption                                   */
 /* ------------------------------------------------------------------ */
 
-static void bench_decrypt_hw(int n, int slot, char *port, char *fp_path) 
+static void bench_decrypt_hw(int n, int slot, char *port, char *fp_path, uint8_t *fingerprint) 
 {
     fprintf(stderr, "[4/5] Decrypt HW (%d runs x %d sizes)...\n", n, N_SIZES);
     
     mkdir("/tmp/pico_bench", 0755);
+
+    int fd = device_open(port);
+    if (fd < 0) 
+    { 
+        fprintf(stderr, "device_open failed\n"); 
+        return; 
+    }
 
     for (int si = 0; si < N_SIZES; si++) 
     {
@@ -323,42 +330,39 @@ static void bench_decrypt_hw(int n, int slot, char *port, char *fp_path)
             continue;
         }
 
+        pgp_secret_cache_t cache = { .have_secret = 0 };
+
+        pgp_decrypt_core(fd, pgp, dec_out, slot, fingerprint, true, &cache, false, NULL);
+
         double *vt = malloc((size_t)n * sizeof(double));
         int valid = 0;
 
-        for (int i = 0; i < n + N_WARMUP; i++) 
+        for (int i = 0; i < n; i++)     
         {
             remove(dec_out);
-
             double elapsed = 0.0;
-            char *args[] = { pgp, "--port", port, "--slot", NULL, "--skipp-tup", "true", "--fp", fp_path, "--logger", "false" };
-            asprintf(&args[4], "%d", slot);
+            int rc = pgp_decrypt_core(fd, pgp, dec_out, slot, fingerprint, true, &cache, false, &elapsed);  
             
-            int rc = cmd_decrypt(11, args, &elapsed);
-
             if (rc != 0) 
-            {
-                fprintf(stderr, "\tFAIL decrypt iter %d/%s\n", i, FILE_SIZES[si].name);
-                continue;
+            { 
+                fprintf(stderr, "\tFAIL decrypt iter %d/%s\n", i, FILE_SIZES[si].name); 
+                continue; 
             }
-
-            if (i >= N_WARMUP) 
-            {
-                vt[valid++] = elapsed;
-            }
+            
+            vt[valid++] = elapsed;
         }
 
         if (valid > 0) 
         {
             char name[64];
             snprintf(name, sizeof(name), "BenchmarkDecrypt_HW/%s", FILE_SIZES[si].name);
-            
-            double med = calc_median(vt, valid);
-            csv_row(name, med, vt[0], vt[valid-1], valid, sz, 0, 0, 0, 0);
+            csv_row(name, calc_median(vt, valid), vt[0], vt[valid-1], valid, FILE_SIZES[si].size, 0,0,0,0);
         }
-
+    
         free(vt);
     }
+
+    device_close(fd);
 }
 
 /* ------------------------------------------------------------------ */
@@ -502,7 +506,7 @@ int main(int argc, char *argv[])
     bench_ecdh_soft(n_runs, recip_pub);
     bench_ecdh_hw(n_runs, fd, slot);
     bench_encrypt_hw(n_runs);
-    bench_decrypt_hw(n_runs, slot, port, fp_path);
+    bench_decrypt_hw(n_runs, slot, port, fp_path, fp);
     bench_file_sizes();
 
     device_close(fd);

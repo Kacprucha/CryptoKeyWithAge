@@ -12,7 +12,7 @@
 #include "../device/device_tup.h"
 #include "../benchmarks/timing.h"
 
-int cmd_decrypt(int argc, char *argv[], double *out_time_ms)
+int cmd_decrypt(int argc, char *argv[])
 {
     const char *input_path = NULL;
     const char *port = "/dev/ttyACM0";
@@ -59,9 +59,67 @@ int cmd_decrypt(int argc, char *argv[], double *out_time_ms)
         fprintf(stderr, "Usage: pico-pgp decrypt <file.pgp> [--slot N] [--port DEV] [--fp file.fp] [--output file]\n");
         return 1;
     }
-
-    double t0 = now_ms();
  
+    /* Loading fingerprint subkey (20B) from .fp file */
+    uint8_t fingerprint[20] = {0};
+    char fp_auto[512];
+    if (!fp_path) 
+    {
+        snprintf(fp_auto, sizeof(fp_auto), "pico_cert.pgp.fp");
+        fp_path = fp_auto;
+    }
+    
+    FILE *fp_file = fopen(fp_path, "rb");
+    if (!fp_file) 
+    {
+        fprintf(stderr,
+            "Error: fingerprint file not found: %s\n"
+            "Run first: python3 gen_cert.py\n"
+            "Then:      gpg --import pico_cert.pgp\n",
+            fp_path);
+        return 1;
+    }
+
+    size_t fp_read = fread(fingerprint, 1, 20, fp_file);
+    fclose(fp_file);
+    if (fp_read != 20) 
+    {
+        fprintf(stderr, "Error: fingerprint file must be exactly 20B, got %zu\n", fp_read);
+        return 1;
+    }
+ 
+    if (logger_enabled) 
+    {
+        printf("[*] Fingerprint: ");
+        
+        for (int i = 0; i < 20; i++) 
+        {
+            printf("%02x", fingerprint[i]);
+        }
+        
+        printf("\n");
+ 
+        printf("[*] Connecting to Pico on %s...\n", port);
+    }
+
+    int fd = device_open(port);
+    if (fd < 0) 
+    { 
+        perror("device_open"); 
+        return 1; 
+    }
+
+    int ret = pgp_decrypt_core(fd, input_path, output_path, slot, fingerprint, skip_tup, NULL, logger_enabled, NULL);
+
+    device_close(fd);
+    return ret;
+}
+
+int pgp_decrypt_core(int fd, const char *input_path, const char *output_path, int slot, const uint8_t fingerprint[20], bool skip_tup,
+                     pgp_secret_cache_t *cache, bool logger_enabled, double *out_time_ms)
+{
+    double t0 = now_ms();
+
     FILE *f = fopen(input_path, "rb");
     if (!f) 
     { 
@@ -113,101 +171,47 @@ int cmd_decrypt(int argc, char *argv[], double *out_time_ms)
     }
  
     free(pgp_data);
- 
-    /* Loading fingerprint subkey (20B) from .fp file */
-    uint8_t fingerprint[20] = {0};
-    char fp_auto[512];
-    if (!fp_path) 
-    {
-        snprintf(fp_auto, sizeof(fp_auto), "pico_cert.pgp.fp");
-        fp_path = fp_auto;
-    }
     
-    FILE *fp_file = fopen(fp_path, "rb");
-    if (!fp_file) 
-    {
-        fprintf(stderr,
-            "Error: fingerprint file not found: %s\n"
-            "Run first: python3 gen_cert.py\n"
-            "Then:      gpg --import pico_cert.pgp\n",
-            fp_path);
-        return 1;
-    }
-
-    size_t fp_read = fread(fingerprint, 1, 20, fp_file);
-    fclose(fp_file);
-    if (fp_read != 20) 
-    {
-        fprintf(stderr, "Error: fingerprint file must be exactly 20B, got %zu\n", fp_read);
-        return 1;
-    }
- 
-    if (logger_enabled) 
-    {
-        printf("[*] Fingerprint: ");
-        
-        for (int i = 0; i < 20; i++) 
-        {
-            printf("%02x", fingerprint[i]);
-        }
-        
-        printf("\n");
- 
-        printf("[*] Connecting to Pico on %s...\n", port);
-    }
-
-    int fd = device_open(port);
-    if (fd < 0) 
-    { 
-        perror("device_open"); 
-        return 1; 
-    }
-
-    uint8_t ecdh_payload[65];
-    ecdh_payload[0] = (uint8_t)slot;
-    memcpy(ecdh_payload + 1, pkesk.eph_pub_xy, 64);
-
     uint8_t shared_secret[32];
-    uint16_t ss_len = 0;
-    int ecdh_ok;
 
-    if (skip_tup) 
+    if (cache && cache->have_secret) 
     {
-        int rc = device_send_cmd(fd, CMD_ECDH_REQUEST_BYPASS_TUP, ecdh_payload, 65, NULL, shared_secret, &ss_len);
+        memcpy(shared_secret, cache->shared, 32);   // trafienie w cache => ~0 ms, bez chipu
+    } 
+    else 
+    {
+        uint8_t ecdh_payload[65];
+        ecdh_payload[0] = (uint8_t)slot;
+        memcpy(ecdh_payload + 1, pkesk.eph_pub_xy, 64);
 
-        ecdh_ok = (rc == 0 && ss_len == 32) ? 0 : -1;
+        uint16_t ss_len = 0;
+        int ecdh_ok;
+
+        if (skip_tup) 
+        {
+            int rc = device_send_cmd(fd, CMD_ECDH_REQUEST_BYPASS_TUP, ecdh_payload, 65, NULL, shared_secret, &ss_len);
+            
+            ecdh_ok = (rc == 0 && ss_len == 32) ? 0 : -1;
+        } 
+        else 
+        {
+            int tup_rc = pgp_device_send_cmd_tup(fd, CMD_ECDH_REQUEST, ecdh_payload, 65, shared_secret, &ss_len);
+
+            ecdh_ok = (tup_rc == 0 && ss_len == 32) ? 0 : -1;
+        }
 
         if (ecdh_ok != 0) 
         {
-            fprintf(stderr, "Error: ECDH_REQUEST_BYPASS_TUP failed (rc=%d, len=%u)\n", rc, ss_len);
+            return 1;
         }
-    }
-    else
-    {
-        int tup_rc = pgp_device_send_cmd_tup(fd, CMD_ECDH_REQUEST, ecdh_payload, 65, shared_secret, &ss_len);
 
-        if (tup_rc == -2) 
-        {
-            fprintf(stderr, "Error: TUP timeout - button not pressed.\n");
-            ecdh_ok = -1;
-        }
-        else if (tup_rc != 0 || ss_len != 32) 
-        {
-            fprintf(stderr, "Error: ECDH_REQUEST failed (rc=%d, len=%u)\n", tup_rc, ss_len);
-            ecdh_ok = -1;
-        }
-        else 
-        {
-            ecdh_ok = 0;
+        if (cache) 
+        {                    
+            memcpy(cache->shared, shared_secret, 32);
+            cache->have_secret = 1;
         }
     }
 
-    device_close(fd);
-
-    if (ecdh_ok != 0) 
-    {
-        return 1;
-    }
 
     if (logger_enabled) 
     {
@@ -349,23 +353,22 @@ int cmd_decrypt(int argc, char *argv[], double *out_time_ms)
     }
  
     int ret = system(gpg_cmd);
-    double elapsed = now_ms() - t0;
     
     if (ret != 0) 
     {
         fprintf(stderr, "Error: GPG decryption failed (exit code %d)\nCommand: %s\n", ret, gpg_cmd);
         return 1;
     }
-
-    if (out_time_ms) 
-    { 
-        *out_time_ms = elapsed;
-    }
  
     if (logger_enabled) 
     {
         printf("[+] Decrypted: %s\n", out_path);
     }
-    
+
+    if (out_time_ms) 
+    {
+        *out_time_ms = now_ms() - t0;   
+    }
+
     return 0;
 }

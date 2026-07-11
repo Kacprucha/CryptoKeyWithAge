@@ -182,7 +182,6 @@ func BenchmarkDecrypt_Hardware(b *testing.B) {
 	}
 
 	r := &picoage.PicoRecipient{DevicePub: pub, Slot: 0}
-	identity := &picoage.PicoIdentity{Dev: dev, BypassTUP: true}
 
 	for _, sz := range fileSizes {
 		b.Run(sz.name, func(b *testing.B) {
@@ -190,15 +189,23 @@ func BenchmarkDecrypt_Hardware(b *testing.B) {
 			rand.Read(data)
 			encData := encryptHardware(data, r)
 
+			id := &picoage.PicoIdentityBenchamrk{Dev: dev, DevicePub: pub, BypassTUP: true, SharedCache: make(map[string][]byte)}
+
+			warm, err := age.Decrypt(bytes.NewReader(encData), id)
+			if err != nil {
+				b.Fatal("warm decrypt:", err)
+			}
+			io.Copy(io.Discard, warm)
+
 			b.SetBytes(int64(sz.size))
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
-				r, err := age.Decrypt(bytes.NewReader(encData), identity)
+				rr, err := age.Decrypt(bytes.NewReader(encData), id)
 				if err != nil {
 					b.Fatal("decrypt error:", err)
 				}
-				io.Copy(io.Discard, r)
+				io.Copy(io.Discard, rr)
 			}
 		})
 	}

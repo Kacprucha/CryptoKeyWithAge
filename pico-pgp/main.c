@@ -35,12 +35,12 @@ int main(int argc, char *argv[])
 
     if (strcmp(argv[1], "encrypt") == 0) 
     {
-        return cmd_encrypt(argc - 2, argv + 2, NULL);
+        return cmd_encrypt(argc - 2, argv + 2, NULL, NULL);
     }
 
     if (strcmp(argv[1], "decrypt") == 0) 
     {
-        return cmd_decrypt(argc - 2, argv + 2, NULL);
+        return cmd_decrypt(argc - 2, argv + 2);
     }
 
     fprintf(stderr, "Unknown command: %s\n", argv[1]);

@@ -12,12 +12,15 @@ import (
 
 type PicoIdentity struct {
 	Dev       *device.Device
+	DevicePub []byte
 	BypassTUP bool
 }
 
-type PicoIdentityFast struct {
-	Dev       *device.Device
-	BypassTUP bool
+type PicoIdentityBenchamrk struct {
+	Dev         *device.Device
+	DevicePub   []byte
+	BypassTUP   bool
+	SharedCache map[string][]byte
 }
 
 func (id *PicoIdentity) Unwrap(stanza []*age.Stanza) ([]byte, error) {
@@ -53,9 +56,12 @@ func (id *PicoIdentity) Unwrap(stanza []*age.Stanza) ([]byte, error) {
 			return nil, fmt.Errorf("failed to perform ECDH: %w", err)
 		}
 
-		devPub, err := id.Dev.GetPublicKey(slot)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get device public key: %w", err)
+		devPub := id.DevicePub
+		if devPub == nil {
+			devPub, err = id.Dev.GetPublicKey(slot)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get device public key: %w", err)
+			}
 		}
 
 		kek := hkdfDerive(shared, ephPub, devPub, "age-encryption.org/v1/pico-p256")
@@ -70,7 +76,7 @@ func (id *PicoIdentity) Unwrap(stanza []*age.Stanza) ([]byte, error) {
 	return nil, age.ErrIncorrectIdentity
 }
 
-func (id *PicoIdentityFast) Unwrap(stanza []*age.Stanza) ([]byte, error) {
+func (id *PicoIdentityBenchamrk) Unwrap(stanza []*age.Stanza) ([]byte, error) {
 	for _, s := range stanza {
 		if s.Type != "pico-p256" {
 			continue
@@ -89,16 +95,36 @@ func (id *PicoIdentityFast) Unwrap(stanza []*age.Stanza) ([]byte, error) {
 		if err != nil {
 			continue
 		}
-		slot := uint8(slotInt)
 
-		shared, err := id.Dev.ECDHFast(slot, ephPub[1:])
-		if err != nil {
-			return nil, fmt.Errorf("failed to perform ECDH: %w", err)
+		slot := uint8(slotInt)
+		var shared []byte
+
+		if id.SharedCache != nil {
+			shared = id.SharedCache[string(ephPub)]
 		}
 
-		devPub, err := id.Dev.GetPublicKey(slot)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get device public key: %w", err)
+		if shared == nil {
+			if id.BypassTUP {
+				shared, err = id.Dev.ECDHBypassTUP(slot, ephPub[1:])
+			} else {
+				shared, err = id.Dev.ECDH(slot, ephPub[1:], 500*time.Millisecond)
+			}
+
+			if err != nil {
+				return nil, fmt.Errorf("failed to perform ECDH: %w", err)
+			}
+
+			if id.SharedCache != nil {
+				id.SharedCache[string(ephPub)] = shared
+			}
+		}
+
+		devPub := id.DevicePub
+		if devPub == nil {
+			devPub, err = id.Dev.GetPublicKey(slot)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get device public key: %w", err)
+			}
 		}
 
 		kek := hkdfDerive(shared, ephPub, devPub, "age-encryption.org/v1/pico-p256")
