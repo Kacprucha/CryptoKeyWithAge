@@ -1,6 +1,7 @@
 package device
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -253,7 +254,7 @@ func (d *Device) ECDH(slot uint8, theirPub []byte, pollInterval time.Duration) (
 	}
 }
 
-func (d *Device) SendTUPRequest(slot uint8, theirPub []byte) error {	
+func (d *Device) SendTUPRequest(slot uint8, theirPub []byte) error {
 	payload := make([]byte, protocol.PayloadECDHReq)
 	payload[0] = slot
 
@@ -274,7 +275,7 @@ func (d *Device) ECDHBypassTUP(slot uint8, theirPub []byte) ([]byte, error) {
 		return nil, fmt.Errorf("ECDH: invalid public key length: "+
 			"expected 64 bytes, got %d bytes", len(theirPub))
 	}
-	
+
 	payload := make([]byte, protocol.PayloadECDHReq)
 	payload[0] = slot
 	copy(payload[1:], theirPub)
@@ -307,4 +308,32 @@ func (d *Device) flush() error {
 	}
 
 	return d.port.SetReadTimeout(readTimeout)
+}
+
+func (d *Device) GetOperationTime(slot uint8, theirPub []byte) (float64, float64, error) {
+	if len(theirPub) != 64 {
+		return 0, 0, fmt.Errorf("ECDH: invalid public key length: "+
+			"expected 64 bytes, got %d bytes", len(theirPub))
+	}
+
+	payload := make([]byte, protocol.PayloadECDHReq)
+	payload[0] = 0
+	copy(payload[1:], theirPub)
+
+	t0 := time.Now()
+	resp, err := d.SendCmd(protocol.CmdGetI2CTime, payload)
+	fullTime := time.Since(t0)
+
+	if err != nil {
+		return 0, 0, fmt.Errorf("GetOperationTime: %w", err)
+	}
+
+	// if len(resp) != 4 {
+	// 	return 0, 0, fmt.Errorf("GetOperationTime: unexpected response length: expected 4 bytes, got %d bytes", len(resp))
+	// }
+
+	i2cTime := binary.LittleEndian.Uint32(resp)
+	usbTime := uint32(fullTime.Milliseconds()) - i2cTime
+
+	return float64(usbTime), float64(i2cTime), nil
 }

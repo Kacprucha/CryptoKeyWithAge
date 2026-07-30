@@ -42,6 +42,8 @@ func main() {
 		cmd.RunListKeys(os.Args[2:])
 	case "gen-key":
 		cmd.RunGenKey(os.Args[2:])
+	case "get-operation-time":
+		cmd.RunGetOperationTime(os.Args[2:])
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", os.Args[1])
 		fmt.Print(usage)

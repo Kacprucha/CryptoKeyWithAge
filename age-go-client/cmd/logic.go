@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"crypto/ecdh"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"os"
@@ -103,4 +105,48 @@ func RunGenKey(args []string) {
 	}
 
 	fmt.Printf("Generated key in slot %d with public key: %x\n", slot, pub)
+}
+
+func RunGetOperationTime(args []string) {
+	_, port := parseGenKeyArgs(args)
+
+	portPath := port
+	if portPath == "" {
+		portPath = device.Autodetect()
+		if portPath == "" {
+			fmt.Fprintln(os.Stderr, "Error: no device found")
+			os.Exit(1)
+		}
+	}
+
+	dev, err := device.Open(portPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error opening device: %v\n", err)
+		os.Exit(1)
+	}
+	defer dev.Close()
+
+	fmt.Printf("Using device on port: %s\n", portPath)
+
+	_, err = dev.GetPublicKey(0)
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "No key in slot 0: %v\n", err)
+	}
+
+	curve := ecdh.P256()
+
+	eph, _ := curve.GenerateKey(rand.Reader)
+	pub := eph.PublicKey().Bytes()
+
+	usbTime, i2cTime, err := dev.GetOperationTime(0, pub[1:])
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting operation time: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Operation time:\n")
+	fmt.Printf("  USB time: %.2f ms\n", usbTime)
+	fmt.Printf("  I2C time: %.2f ms\n", i2cTime)
 }

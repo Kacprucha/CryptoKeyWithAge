@@ -9,6 +9,7 @@ const (
 	CmdGenKey               = 0x05
 	CmdUserPresencePending  = 0x06
 	CmdECDHRequestBypassTUP = 0x07
+	CmdGetI2CTime           = 0x08
 )
 
 const (
