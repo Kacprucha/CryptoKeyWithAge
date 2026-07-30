@@ -92,6 +92,7 @@ typedef struct {
     mbedtls_ecp_group grp;
     mbedtls_mpi d;
     mbedtls_ecp_point Q;
+    mbedtls_ecp_point R;
     mbedtls_entropy_context entropy;
     mbedtls_ctr_drbg_context rng;
 } ecdh_ctx_t;
@@ -101,6 +102,7 @@ static void ecdh_ctx_init(ecdh_ctx_t *c)
     mbedtls_ecp_group_init(&c->grp);
     mbedtls_mpi_init(&c->d);
     mbedtls_ecp_point_init(&c->Q);
+    mbedtls_ecp_point_init(&c->R);
     mbedtls_entropy_init(&c->entropy);
     mbedtls_ctr_drbg_init(&c->rng);
     mbedtls_ctr_drbg_seed(&c->rng, mbedtls_entropy_func, &c->entropy, (const uint8_t *)"bench", 5);
@@ -112,68 +114,62 @@ static void ecdh_ctx_free(ecdh_ctx_t *c)
     mbedtls_ecp_group_free(&c->grp);
     mbedtls_mpi_free(&c->d);
     mbedtls_ecp_point_free(&c->Q);
+    mbedtls_ecp_point_free(&c->R);
     mbedtls_ctr_drbg_free(&c->rng);
     mbedtls_entropy_free(&c->entropy);
 }
- 
-static int soft_ecdh(ecdh_ctx_t *c, const uint8_t *recip_xy64, uint8_t *shared32) 
+
+static int ecdh_ctx_set_recip(ecdh_ctx_t *c, const uint8_t *recip_xy64)
 {
-    mbedtls_ecp_gen_privkey(&c->grp, &c->d, mbedtls_ctr_drbg_random, &c->rng);
-    mbedtls_ecp_mul(&c->grp, &c->Q, &c->d, &c->grp.G, mbedtls_ctr_drbg_random, &c->rng);
- 
     uint8_t pub65[65]; pub65[0] = 0x04;
     memcpy(pub65 + 1, recip_xy64, 64);
+    return mbedtls_ecp_point_read_binary(&c->grp, &c->R, pub65, 65);
+}
  
-    mbedtls_ecp_point R, S;
-    mbedtls_ecp_point_init(&R); mbedtls_ecp_point_init(&S);
-    
-    int rc = mbedtls_ecp_point_read_binary(&c->grp, &R, pub65, 65);
-    if (!rc) 
-    {
-        rc = mbedtls_ecp_mul(&c->grp, &S, &c->d, &R, mbedtls_ctr_drbg_random, &c->rng);
-    }
+static int soft_ecdh(ecdh_ctx_t *c, uint8_t *shared32)
+{
+    mbedtls_ecp_gen_privkey(&c->grp, &c->d, mbedtls_ctr_drbg_random, &c->rng);
+    mbedtls_ecp_mul(&c->grp, &c->Q, &c->d, &c->grp.G, mbedtls_ctr_drbg_random, &c->rng); // GenerateKey
 
-    if (!rc) 
-    {
+    mbedtls_ecp_point S;
+    mbedtls_ecp_point_init(&S);
+    int rc = mbedtls_ecp_mul(&c->grp, &S, &c->d, &c->R, mbedtls_ctr_drbg_random, &c->rng); // ECDH(pub)
+    if (!rc) {
         uint8_t out[65]; size_t olen = 0;
         rc = mbedtls_ecp_point_write_binary(&c->grp, &S, MBEDTLS_ECP_PF_UNCOMPRESSED, &olen, out, 65);
-        
-        if (!rc)  
-        {
-            memcpy(shared32, out + 1, 32);
-        }
+        if (!rc) memcpy(shared32, out + 1, 32);
     }
-    
-    mbedtls_ecp_point_free(&R); 
     mbedtls_ecp_point_free(&S);
-    
     return rc;
 }
-
 /* ------------------------------------------------------------------ */
 /* Benchmark 1: ECDH Software                                         */
 /* ------------------------------------------------------------------ */
 
-static void bench_ecdh_soft(int n, const uint8_t *recip_xy64) 
+static void bench_ecdh_soft(int n, const uint8_t *recip_xy64)
 {
     fprintf(stderr, "[1/5] ECDH Software (%d runs)...\n", n);
+    
     ecdh_ctx_t ctx; ecdh_ctx_init(&ctx);
- 
+    if (ecdh_ctx_set_recip(&ctx, recip_xy64) != 0) 
+    {  
+        fprintf(stderr, "\tFAIL: recipient point read\n");
+        ecdh_ctx_free(&ctx); return;
+    }
+
     double *t = malloc((size_t)(n + N_WARMUP) * sizeof(double));
     uint8_t shared[32];
     
     for (int i = 0; i < n + N_WARMUP; i++) 
     {
         double t0 = now_ms();
-        soft_ecdh(&ctx, recip_xy64, shared);
+        soft_ecdh(&ctx, shared);
         t[i] = now_ms() - t0;
     }
     
     double *v = t + N_WARMUP;
-    csv_row("BenchmarkECDH_Software", calc_median(v, n), v[0], v[n-1], n, 0, 0, 0, 0, 0);
-    
-    free(t); 
-    ecdh_ctx_free(&ctx);
+    csv_row("BenchmarkECDH_Software", calc_median(v, n), v[0], v[n-1], n, 0,0,0,0,0);
+    free(t); ecdh_ctx_free(&ctx);
 }
 
 /* ------------------------------------------------------------------ */

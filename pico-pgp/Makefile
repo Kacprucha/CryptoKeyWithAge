@@ -11,8 +11,8 @@ SRCS = main.c \
        pgp/pkesk.c \
        pgp/kdf.c \
        device/device.c \
-	   device/protocol.c \
-	   device/device_tup.c \
+	device/protocol.c \
+	device/device_tup.c \
        benchmarks/timing.h
 
 pico-pgp: $(SRCS)
