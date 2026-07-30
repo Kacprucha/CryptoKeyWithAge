@@ -86,7 +86,10 @@ void tud_cdc_rx_cb(uint8_t itf)
             break;
         case CMD_ECDH_REQUEST_BYPASS_TUP:
             handle_ecdh_request(frame.data, frame.len, true);
-            break;        
+            break;
+        case CMD_GET_I2C_TIME:
+            handle_get_i2c_time(frame.data, frame.len);
+            break;
         default:
             size_t out_len;
             protocol_build_error (ERR_UNKNOWN_CMD, tx_buf, &out_len);

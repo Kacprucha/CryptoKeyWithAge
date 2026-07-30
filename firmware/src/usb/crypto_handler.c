@@ -220,3 +220,80 @@ void handle_ecdh_request(const uint8_t *payload, uint16_t len, bool skip_tup_che
     tud_cdc_write_flush();
 }
 
+void ecdh_request_with_i2c_time(const uint8_t *payload, uint16_t len, uint64_t *i2c_time_ms)
+{
+    uint8_t shared_secret[32];
+    uint8_t resp[FRAME_OVERHEAD + 32];
+    size_t out_len;
+
+    if (len != 65) 
+    {
+        protocol_build_error(ERR_BAD_LENGTH, resp, &out_len);
+        tud_cdc_write(resp, out_len);
+        tud_cdc_write_flush();
+        return;
+    }
+
+    uint8_t slot = payload[0];
+    const uint8_t *their_pub = payload + 1;
+
+    if (slot > 7) 
+    {
+        protocol_build_error(ERR_BAD_SLOT, resp, &out_len);
+        tud_cdc_write(resp, out_len);
+        tud_cdc_write_flush();
+        return;
+    }
+
+    /* User has pressed the button - proceed with the cryptographic operation */
+    s_tup_pending_for_ecdh = false;
+
+    bool x_zero = true, y_zero = true;
+    for (int i = 0; i < 32; i++) 
+    {
+        if (their_pub[i] != 0) x_zero = false;
+        if (their_pub[i+32] != 0) y_zero = false;
+    }
+
+    if (x_zero || y_zero) 
+    {
+        protocol_build_error(ERR_BAD_LENGTH, resp, &out_len);
+        tud_cdc_write(resp, out_len);
+        tud_cdc_write_flush();
+        return;
+    }
+
+    uint64_t start_time = time_us_64();
+    ATCA_STATUS status = atcab_ecdh(slot, their_pub, shared_secret);
+    uint64_t end_time = time_us_64();
+    *i2c_time_ms = (end_time - start_time) / 1000; // Convert microseconds to milliseconds
+    
+    // if (status != ATCA_SUCCESS) 
+    // {
+    //     protocol_build_error(ERR_CHIP_FAIL, resp, &out_len);
+    // } 
+    // else 
+    // {
+    //     protocol_build_response(CMD_ECDH_REQUEST, shared_secret, 32, resp, &out_len);
+    //     volatile uint8_t *p = shared_secret;
+    //     for (int i = 0; i < 32; i++) p[i] = 0;
+    // }
+
+    // tud_cdc_write(resp, out_len);
+    // tud_cdc_write_flush();
+}
+
+void handle_get_i2c_time(const uint8_t *req_data, uint16_t req_len) 
+{
+    static uint8_t tx_buf[128];
+    size_t out_len = 0;
+
+    uint64_t i2c_time_ms = 0;
+    ecdh_request_with_i2c_time(req_data, req_len, &i2c_time_ms);
+    protocol_build_response(CMD_GET_I2C_TIME, (uint8_t*)&i2c_time_ms, sizeof(i2c_time_ms), tx_buf, &out_len);
+
+    tud_cdc_write(tx_buf, out_len);
+    tud_cdc_write_flush();
+}
+
+
