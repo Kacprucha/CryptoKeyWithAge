@@ -176,7 +176,7 @@ int pgp_decrypt_core(int fd, const char *input_path, const char *output_path, in
 
     if (cache && cache->have_secret) 
     {
-        memcpy(shared_secret, cache->shared, 32);   // trafienie w cache => ~0 ms, bez chipu
+        memcpy(shared_secret, cache->shared, 32);
     } 
     else 
     {

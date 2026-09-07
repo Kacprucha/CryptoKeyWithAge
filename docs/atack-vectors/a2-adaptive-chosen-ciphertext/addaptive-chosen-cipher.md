@@ -55,39 +55,52 @@ ct[50:66] = E_key(ct[34:50]) XOR plaintext[32:48] → BLOK 2 plaintextu
 Wiedząc jakie fragmenty cyphertextu odpowiadają za jakie elemty wiemy że musimy modyfikować bajty od 34 w górę aby nie wpłynąć na modyfikację elementów cyphertextu, które odpowiadają za qucik check. Wiedząc to możemy za pomoca skryptu (z symulowaną oracle) zgadaywać co znajduje się wenwnątrz zaszyfrowanego pliku:
 
 ```
-…/docs/atack-vectors master ? ❯ python3 cca.py
-Baseline — oryginalny plaintext
+…/atack-vectors/a2-adaptive-chosen-ciphertext master  ? ✗ python3 mz_cca.py
+======================================================================
+ATAK MISTER-ZUCCHERATO (IACR 2005/033) -- wyrocznia 1-bitowa
+======================================================================
+C1=1f5d24f85cc275c413e6774ab3e7a833  C2=6368  C3=c8e2421985c5f2f2600cddd1a4708e7c  C4=db269d0d7d22aaef9584b2054bdccffb
 
-  QC: PASS  exit=0  plaintext: 'TAJNY DOKUMENT: klucz dostepu XK-7734-ALFA'
+[Faza A] Wyznaczanie [E_K(0)]_(b-1,b) -- setup, oczekiwane ~2^15 zapytań
+    Znane 2 bajty M1 (przewidziane ze struktury pakietu): b'\xcb0'
+    ... 4096/65536 zapytań (15 zapytań/s, upłynęło 267s)
+    ... 8192/65536 zapytań (15 zapytań/s, upłynęło 532s)
+    ... 12288/65536 zapytań (15 zapytań/s, upłynęło 796s)
+    ... 16384/65536 zapytań (15 zapytań/s, upłynęło 1061s)
+    ... 20480/65536 zapytań (15 zapytań/s, upłynęło 1326s)
+    ... 24576/65536 zapytań (15 zapytań/s, upłynęło 1591s)
+    ... 28672/65536 zapytań (15 zapytań/s, upłynęło 1856s)
+    ... 32768/65536 zapytań (15 zapytań/s, upłynęło 2121s)
+    ... 36864/65536 zapytań (15 zapytań/s, upłynęło 2386s)
+    ... 40960/65536 zapytań (15 zapytań/s, upłynęło 2652s)
+    ... 45056/65536 zapytań (15 zapytań/s, upłynęło 2919s)
+    ... 49152/65536 zapytań (15 zapytań/s, upłynęło 3185s)
+    ... 53248/65536 zapytań (15 zapytań/s, upłynęło 3452s)
+    ... 57344/65536 zapytań (15 zapytań/s, upłynęło 3718s)
+    [+] Znaleziono D=0xe183 po 57732 zapytaniach (3743.1s)
+    [E_K(0)]_(b-1,b) = 8139
 
-Oracle PASS vs FAIL
+[Faza B] Odzyskiwanie [M2]_1,2 -- atak właściwy, oczekiwane ~2^15 zapytań
+    ... 4096/65536 zapytań (15 zapytań/s, upłynęło 266s)
+    ... 8192/65536 zapytań (15 zapytań/s, upłynęło 532s)
+    ... 12288/65536 zapytań (15 zapytań/s, upłynęło 797s)
+    ... 16384/65536 zapytań (15 zapytań/s, upłynęło 1062s)
+    ... 20480/65536 zapytań (15 zapytań/s, upłynęło 1327s)
+    ... 24576/65536 zapytań (15 zapytań/s, upłynęło 1595s)
+    ... 28672/65536 zapytań (15 zapytań/s, upłynęło 1861s)
+    ... 32768/65536 zapytań (15 zapytań/s, upłynęło 2127s)
+    ... 36864/65536 zapytań (15 zapytań/s, upłynęło 2393s)
+    [+] Znaleziono D=0x9f36 po 40759 zapytaniach (2644.9s)
+    [E_K(C3)]_1,2 = 9073
+    Odzyskane [M2]_1,2 = b'KU' (hex: 4b55)
 
-  Modyfikacja ct[16] (Quick Check) → FAIL
-  ct[16] ^= 0xFF: QC=PASS  exit=2  bad_session_key=True
-
-  Modyfikacja ct[34] (blok 1) → PASS (QC niezmienione)
-  ct[34] ^= 0x20: QC=PASS  exit=2 (MDC fail)  — ale przy ignore-mdc: plaintext dostępny
-
-  i  ct_idx  true    oracle  guessed  match
-  ──────────────────────────────────────────
-  0  ct[34]  'K'     'k'     'K'      OK
-  1  ct[35]  'U'     'u'     'U'      OK
-  2  ct[36]  'M'     'm'     'M'      OK
-  3  ct[37]  'E'     'e'     'E'      OK
-  4  ct[38]  'N'     'n'     'N'      OK
-  5  ct[39]  'T'     't'     'T'      OK
-  6  ct[40]  ':'     '\x1a'  ':'      OK
-  7  ct[41]  ' '     '\x00'  ' '      OK
-
-  Odgadniete bajty: 'KUMENT: '
-  Prawdziwe bajty: 'KUMENT: '
-  Dokladnosc: 8/8
-  Zapytania oracle: 11
+======================================================================
+Prawdziwe [M2]_1,2  : b'KU'
+Odzyskane [M2]_1,2  : b'KU'
+Zgodność            : OK
+Łączna liczba zapytań do wyroczni: 98493 (teoria: ~2 x 2^15 = ~65536 średnio)
+======================================================================
 ```
-
-Wartości '\x1a' i '\x00' w kolumnie oracle (nie ':' i ' ') to efekt error propagation CFB. Zmiana `ct[34+i]` niszczy cały blok `ct[18:34]` jako IV dla bloku 2, dlatego bajty po zmodyfikowanym bloku są "śmieciami". Ale bajty przed nim (blok 0) i same odgadywane bajty pozostają poprawnie zakodowane. Możemy je odgadnąć przez zastosowanie operacji XOR z 0x20 na '\x1a' i '\x00' otrzymując znaki ':' i ' '.
-
-Ważna uwaga aby cały atak był przeprowadzony poprawnie to oracle stosuje flagę `--ignore-mdc-error` lub inną metodę ignornowania błędów MDC.
 
 ### Realizacja ataku dla age
 
