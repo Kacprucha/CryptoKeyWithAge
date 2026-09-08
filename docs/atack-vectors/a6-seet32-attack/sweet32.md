@@ -66,21 +66,21 @@ Przejdźmy do prezentacji wymuszonej pełna kolizja CFB-64 wraz z XOR recovery.
 W trybie CFB-64 `C[i] = E_K(C[i-1]) XOR P[i]`, zatem gdy `C[i] = C[j]` to keystream dla następnych bloków jest identyczny (`E_K(C[i]) = E_K(C[j])`). Zatem możemy zapisać twierdzenie `C[i+1] XOR C[j+1] = P[i+1] XOR P[j+1]`. Ta zależność jest obserwowalna wyłącznie z cyphertextem do którego nie znamy klucza. Takie wymuszenie możemy zaobserowować zanając szyfrowany fragment wiadomości:
 
 ```
-C[2] = adcbdeb0e217e7d8  (oryginał)
-C[5] = adcbdeb0e217e7d8  (wymuszona kolizja)
-C[2] == C[5]: True
+C[2] = e6356f1e7d22362b  (kotwica kolizji — blok odniesienia)
+  C[5] = e6356f1e7d22362b  (wymuszona kolizja z C[2])
+  C[2] == C[5]: True
 
-P[3] XOR P[6] = 8a58a3ba630e6e35  (nieznane atakującemu)
-C[3] XOR C[6] = 8a58a3ba630e6e35  (obserwowalne z samego szyfrogramu)
-Równość:       True
+  P[3] XOR P[6] = 140017726a746975  (nieznane atakującemu — P[6] jest sekretem)
+  C[3] XOR C[6] = 140017726a746975  (obserwowalne z samego szyfrogramu)
+  Równość:       True
 
-[!!] Gdy C[i]=C[j], to P[i+1] XOR P[j+1] = C[i+1] ZOR C[j+1] (bez klucza!)
-[!!] Znając P[3] (znany nagłówek), atakujący odzyskuje P[6] (tajny blok):
+  [!!] Gdy C[i]=C[j], to P[i+1] XOR P[j+1] = C[i+1] XOR C[j+1] (bez klucza)
+  [!!] Znając P[3] (blok znany), atakujący odzyskuje P[6] (blok tajny):
 
-    P[3] znany:   b'SECRET!!'
-    P[6] sekret:  d91de0e8265a4f14
-    P[6] odzysk:  d91de0e8265a4f14
-    Odzysk poprawny: True
+     P[3] znany:   b'GET / HT'
+     P[6] sekret:  b'SECRET!!'
+     P[6] odzysk:  b'SECRET!!'
+     Odzysk poprawny: True
 ```
 
 Wymuszona kolizja (known-key PoC, metodologia Sec. 5 pracy SWEET32):

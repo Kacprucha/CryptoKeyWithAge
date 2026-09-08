@@ -57,7 +57,7 @@ Wiedząc jakie fragmenty cyphertextu odpowiadają za jakie elemty wiemy że musi
 ```
 …/atack-vectors/a2-adaptive-chosen-ciphertext master  ? ✗ python3 mz_cca.py
 ======================================================================
-ATAK MISTER-ZUCCHERATO (IACR 2005/033) -- wyrocznia 1-bitowa
+ATAK MISTER-ZUCCHERATO - wyrocznia 1-bitowa
 ======================================================================
 C1=1f5d24f85cc275c413e6774ab3e7a833  C2=6368  C3=c8e2421985c5f2f2600cddd1a4708e7c  C4=db269d0d7d22aaef9584b2054bdccffb
 

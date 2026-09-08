@@ -81,17 +81,15 @@ def sanity_check(hdr: bytes, ct: bytes) -> bool:
     print(f"    Niezmodyfikowany plik -> oracle={baseline} (oczekiwano: True)")
 
     broken = bytearray(ct)
-    broken[16] ^= 0xFF  
+    broken[16] ^= 0xFF 
     broken_result = quick_check_oracle(hdr, bytes(broken))
-    print(f"    Zepsuty bajt C2 (ct[16]) -> oracle={broken_result} "
-          f"(oczekiwano: False)")
+    print(f"    Zepsuty bajt C2 (ct[16]) -> oracle={broken_result}")
 
     if baseline and not broken_result:
         print("    [OK] Wyrocznia poprawnie rozróżnia PASS/FAIL.\n")
         return True
 
-    print("    [BŁĄD] Wyrocznia NIE rozróżnia poprawnie PASS/FAIL na tym")
-    print("    systemie -- dalsze przeszukiwanie da bezsensowne wyniki.")
+    print("    [BŁĄD] Wyrocznia nie rozróżnia poprawnie PASS/FAIL")
 
     return False
 
@@ -142,7 +140,7 @@ def main():
         sys.exit(1)
 
     print("=" * 70)
-    print("ATAK MISTER-ZUCCHERATO (IACR 2005/033) -- wyrocznia 1-bitowa")
+    print("ATAK MISTER-ZUCCHERATO - wyrocznia 1-bitowa")
     print("=" * 70)
     print(f"C1={C1.hex()}  C2={C2.hex()}  C3={C3.hex()}  C4={C4.hex()}")
     print()
@@ -196,6 +194,7 @@ def main():
 
     # Weryfikacja
 
+    header_total_len = 2 + 1 + 1 + 0 + 4  
     m2_text_offset = 16 - header_total_len
     true_M2_first2 = (true_plaintext[m2_text_offset:m2_text_offset + 2]
                        if len(true_plaintext) >= m2_text_offset + 2 else b"??")

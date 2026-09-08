@@ -121,8 +121,8 @@ def forced_collision_recovery_part():
     iv  = bytes(8)
 
     P = [os.urandom(8) for _ in range(7)]
-    P[2] = b"GET / HTT"[:8]
-    P[3] = b"SECRET!!"
+    P[3] = b"GET / HT"
+    P[6] = b"SECRET!!"
 
     CT = cfb64_encrypt(key, iv, P[:5])
 
@@ -132,15 +132,15 @@ def forced_collision_recovery_part():
 
     CT += cfb64_encrypt(key, CT[4], [P5_forced, P[6]])
 
-    print(f"  C[2] = {CT[2].hex()}  (oryginał)")
-    print(f"  C[5] = {CT[5].hex()}  (wymuszona kolizja)")
+    print(f"  C[2] = {CT[2].hex()}  (kotwica kolizji — blok odniesienia)")
+    print(f"  C[5] = {CT[5].hex()}  (wymuszona kolizja z C[2])")
     print(f"  C[2] == C[5]: {CT[2] == CT[5]}")
     print()
 
     xor_ct = xor8(CT[3], CT[6])
     xor_pt = xor8(P[3], P[6])
 
-    print(f"  P[3] XOR P[6] = {xor_pt.hex()}  (nieznane atakującemu)")
+    print(f"  P[3] XOR P[6] = {xor_pt.hex()}  (nieznane atakującemu — P[6] jest sekretem)")
     print(f"  C[3] XOR C[6] = {xor_ct.hex()}  (obserwowalne z samego szyfrogramu)")
     print(f"  Równość:       {xor_ct == xor_pt}")
     print()
@@ -148,10 +148,10 @@ def forced_collision_recovery_part():
     P6_rec = xor8(xor8(P[3], CT[3]), CT[6])
 
     fail("Gdy C[i]=C[j], to P[i+1] XOR P[j+1] = C[i+1] XOR C[j+1] (bez klucza)")
-    fail("Znając P[3] (znany nagłówek), atakujący odzyskuje P[6] (tajny blok):")
+    fail("Znając P[3] (blok znany), atakujący odzyskuje P[6] (blok tajny):")
     print(f"\n     P[3] znany:   {P[3]}")
-    print(f"     P[6] sekret:  {P[6].hex()}")
-    print(f"     P[6] odzysk:  {P6_rec.hex()}")
+    print(f"     P[6] sekret:  {P[6]}")
+    print(f"     P[6] odzysk:  {P6_rec}")
     print(f"     Odzysk poprawny: {P6_rec == P[6]}\n")
 
     return P[3], P[6], P6_rec, xor_ct

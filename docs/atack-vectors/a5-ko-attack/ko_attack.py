@@ -67,7 +67,7 @@ def build_forged_dsa_key(s2k_bytes, enc_blob, x_for_self_sig, p, q, g, y, uid_te
 
 
 def real_gnupg_test_part(x_real, s2k_bytes, enc_blob):
-    print("\nTest wobec REALNEGO GnuPG: import cross-algorithm\n")
+    print("\nTest wobec GnuPG: import cross-algorithm\n")
 
     print("Budujemy sfalszowany Secret Key Packet: algo=DSA (17), reuzywajac te same bajty S2K + zaszyfrowanego sekretu z klucza EdDSA")
     print()
@@ -183,7 +183,7 @@ def full_extraction_part(x_real, s2k_bytes, enc_blob, n_rounds=18, q_bits=16):
         else:
             ambiguous += 1
             print(f"  runda {i+1:2}/{n_rounds}: q={q:6}  "
-                  f"NIEJEDNOZNACZNE ({len(cands)} kandydatow) — pomijam")
+                  f"niejednoznacznie ({len(cands)} kandydatow) — pomijane")
 
     elapsed = time.time() - t0
     
